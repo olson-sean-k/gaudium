@@ -1,0 +1,35 @@
+[package]
+name = "gaudium"
+version = "0.0.0"
+authors = ["Sean Olson <olson.sean.k@gmail.com>"]
+license = "MIT"
+description = "Cross-platform display and input abstraction."
+
+[package.metadata.docs.rs]
+all-features = true
+default-target = "x86_64-pc-windows-msvc"
+
+[features]
+default = ["platform-facade"]
+# Enables a facade platform. Gaudium will not build on unsupported platforms
+# unless this is enabled.
+platform-facade = []
+
+[dependencies]
+arrayvec = "0.4.*"
+fool = { git = "https://github.com/olson-sean-k/fool", rev = "12b91c8" }
+lazy_static = "0.2.*"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+nix = "0.8.*"
+
+[target.'cfg(target_os = "windows")'.dependencies.winapi]
+version = "0.3.*"
+features = [
+    "hidpi",
+    "hidusage",
+    "libloaderapi",
+    "processthreadsapi",
+    "std",
+    "windowsx",
+    "winuser"]
