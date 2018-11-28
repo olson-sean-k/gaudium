@@ -2,8 +2,10 @@ use std::collections::HashSet;
 use std::ops::Deref;
 
 use event::{ElementState, Event, InputEvent, MouseButton, MouseMovement};
-use framework::input::state::{AsRawState, CompositeState, Element, Snapshot, SnapshotDifference,
-                              SnapshotState, SnapshotTransition, State};
+use framework::input::state::{
+    AsRawState, CompositeState, Element, Snapshot, SnapshotDifference, SnapshotState,
+    SnapshotTransition, State,
+};
 use framework::React;
 
 impl Element for MouseButton {

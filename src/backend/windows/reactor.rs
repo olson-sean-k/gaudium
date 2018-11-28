@@ -6,6 +6,7 @@ use std::ptr;
 use winapi::shared::minwindef;
 use winapi::um::{processthreadsapi, winuser};
 
+use backend::windows;
 use event::*;
 use reactor::{Poll, Reactor, ThreadStatic};
 
@@ -16,19 +17,7 @@ thread_local! {
 enum PollResult {
     Dispatch(*const winuser::MSG),
     Repoll,
-    Abort(i32),
-}
-
-impl From<(bool, winuser::LPMSG)> for PollResult {
-    fn from(value: (bool, winuser::LPMSG)) -> Self {
-        let (dispatch, message) = value;
-        if dispatch {
-            PollResult::Dispatch(message)
-        }
-        else {
-            unsafe { PollResult::Abort((*message).wParam as i32) }
-        }
-    }
+    Abort(minwindef::UINT),
 }
 
 trait React {
@@ -82,7 +71,7 @@ where
         let thread = EventThread::new(reactor.into(), unsafe {
             ThreadContext::new_in_thread().expect("")
         });
-        thread.run()
+        unsafe { thread.run() }
     }
 
     pub fn run_with_reactor_from<F>(f: F) -> !
@@ -92,36 +81,42 @@ where
         let context = unsafe { ThreadContext::new_in_thread().expect("") };
         let reactor = f(&context);
         let thread = EventThread::new(reactor, context);
-        thread.run()
+        unsafe { thread.run() }
     }
 
-    fn run(mut self) -> ! {
-        unsafe {
-            EVENT_THREAD.with(|thread| {
-                *thread.borrow_mut() = Some(mem::transmute::<&'_ mut React, *mut React>(&mut self));
-            });
-            let mut message = mem::uninitialized();
-            loop {
-                match self.poll(&mut message) {
-                    PollResult::Dispatch(message) => {
-                        winuser::TranslateMessage(message);
-                        winuser::DispatchMessageW(message);
-                    }
-                    PollResult::Abort(code) => {
-                        EVENT_THREAD.with(|thread| {
-                            *thread.borrow_mut() = None;
-                        });
-                        self.abort(); // Drop the reactor and all state.
-                        process::exit(code)
-                    }
-                    _ => {}
+    unsafe fn run(mut self) -> ! {
+        EVENT_THREAD.with(|thread| {
+            *thread.borrow_mut() = Some(mem::transmute::<&'_ mut React, *mut React>(&mut self));
+        });
+        let mut message = mem::uninitialized();
+        loop {
+            match self.poll(&mut message) {
+                PollResult::Dispatch(message) => {
+                    winuser::TranslateMessage(message);
+                    winuser::DispatchMessageW(message);
                 }
+                PollResult::Abort(code) => {
+                    EVENT_THREAD.with(|thread| {
+                        *thread.borrow_mut() = None;
+                    });
+                    self.abort(); // Drop the reactor and all state.
+                    windows::exit_process(code)
+                }
+                _ => {}
             }
         }
     }
 
     // TODO: Support `Poll::Timeout`.
     unsafe fn poll(&mut self, message: winuser::LPMSG) -> PollResult {
+        let parse = |abort, message: winuser::LPMSG| {
+            if abort {
+                unsafe { PollResult::Abort((*message).wParam as minwindef::UINT) }
+            }
+            else {
+                PollResult::Dispatch(message)
+            }
+        };
         if let Some(event) = self.queue.pop_back() {
             self.react(event);
             PollResult::Repoll
@@ -132,20 +127,20 @@ where
                     if winuser::PeekMessageW(message, ptr::null_mut(), 0, 0, winuser::PM_REMOVE)
                         == 0
                     {
-                        let _ = react(Event::Application {
+                        self.react(Event::Application {
                             event: ApplicationEvent::QueueExhausted,
                         });
                         PollResult::Repoll
                     }
                     else {
                         // Detect `WM_QUIT` just as `GetMessageW` does.
-                        (((*message).message != winuser::WM_QUIT), message).into()
+                        parse((*message).message == winuser::WM_QUIT, message)
                     }
                 }
-                _ => (
-                    (winuser::GetMessageW(message, ptr::null_mut(), 0, 0) != 0),
+                _ => parse(
+                    winuser::GetMessageW(message, ptr::null_mut(), 0, 0) == 0,
                     message,
-                ).into(),
+                ),
             }
         }
     }

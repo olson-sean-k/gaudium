@@ -2,7 +2,8 @@
 
 use arrayvec::ArrayVec;
 use std::ffi::OsStr;
-use winapi::shared::ntdef;
+use winapi::shared::{minwindef, ntdef};
+use winapi::um::processthreadsapi;
 
 use backend::{FromRawHandle, IntoRawHandle, RawHandle};
 
@@ -62,4 +63,11 @@ impl DisplayHandle {
     fn as_raw_device_name(&self) -> &[ntdef::WCHAR] {
         &self.0
     }
+}
+
+pub fn exit_process(code: minwindef::UINT) -> ! {
+    unsafe {
+        processthreadsapi::ExitProcess(code);
+    }
+    loop {}
 }

@@ -4,9 +4,10 @@ use std::mem;
 use std::panic;
 use std::process;
 use std::ptr;
-use winapi::shared::{minwindef, ntdef, windef, windowsx};
-use winapi::um::{libloaderapi, winuser};
+use winapi::shared::{basetsd, minwindef, ntdef, windef, windowsx};
+use winapi::um::{commctrl, libloaderapi, winuser};
 
+use backend::windows;
 use backend::windows::reactor::ThreadContext;
 use backend::windows::WideNullTerminated;
 use backend::windows::{input, keyboard, mouse, reactor};
@@ -14,6 +15,8 @@ use backend::{FromRawHandle, IntoHandle, IntoRawHandle, RawHandle};
 use device::Usage;
 use display::{IntoLogical, IntoPhysical, LogicalUnit};
 use event::*;
+
+const WINDOW_SUBCLASS_ID: basetsd::UINT_PTR = 0;
 
 lazy_static! {
     static ref WM_DROP: minwindef::UINT =
@@ -24,7 +27,7 @@ lazy_static! {
             let class = winuser::WNDCLASSEXW {
                 cbSize: mem::size_of::<winuser::WNDCLASSEXW>() as minwindef::UINT,
                 style: winuser::CS_HREDRAW | winuser::CS_VREDRAW | winuser::CS_OWNDC,
-                lpfnWndProc: Some(procedure),
+                lpfnWndProc: Some(winuser::DefWindowProcW),
                 cbClsExtra: 0,
                 cbWndExtra: 0,
                 hInstance: libloaderapi::GetModuleHandleW(ptr::null()),
@@ -60,6 +63,11 @@ impl IntoRawHandle<windef::HWND> for WindowHandle {
 
 unsafe impl Send for WindowHandle {}
 unsafe impl Sync for WindowHandle {}
+
+// TODO: This will typically leak given the current structure of window
+//       destruction.
+#[derive(Debug, Default)]
+pub struct WindowState;
 
 pub struct WindowBuilder {
     title: String,
@@ -131,7 +139,9 @@ impl Window {
         else {
             (
                 ptr::null_mut(),
-                winuser::WS_CLIPCHILDREN | winuser::WS_CLIPSIBLINGS | winuser::WS_OVERLAPPEDWINDOW
+                winuser::WS_CLIPCHILDREN
+                    | winuser::WS_CLIPSIBLINGS
+                    | winuser::WS_OVERLAPPEDWINDOW
                     | winuser::WS_VISIBLE,
                 winuser::WS_EX_APPWINDOW | winuser::WS_EX_WINDOWEDGE,
             )
@@ -147,7 +157,7 @@ impl Window {
             rectangle
         };
         let handle = unsafe {
-            winuser::CreateWindowExW(
+            let handle = winuser::CreateWindowExW(
                 extended_style,
                 WINDOW_CLASS_NAME.as_ptr(),
                 title.wide_null_terminated().as_ptr() as ntdef::LPCWSTR,
@@ -160,7 +170,18 @@ impl Window {
                 ptr::null_mut(),
                 libloaderapi::GetModuleHandleW(ptr::null()),
                 ptr::null_mut(),
-            ).into_handle()
+            );
+            let state = Box::into_raw(Box::new(WindowState::default()));
+            if commctrl::SetWindowSubclass(
+                handle,
+                Some(procedure),
+                WINDOW_SUBCLASS_ID,
+                state as basetsd::DWORD_PTR,
+            ) == 0
+            {
+                return Err(());
+            }
+            handle.into_handle()
         };
         input::register(handle).unwrap();
         Ok(Window {
@@ -247,10 +268,13 @@ extern "system" fn procedure(
     message: minwindef::UINT,
     wparam: minwindef::WPARAM,
     lparam: minwindef::LPARAM,
+    _: basetsd::UINT_PTR,
+    state: basetsd::DWORD_PTR,
 ) -> minwindef::LRESULT {
     // TODO: Is there some way to avoid this overhead? Perhaps an optional and
     //       unsafe `NoPanic` trait for reactors?
     match panic::catch_unwind(move || unsafe {
+        let state = &mut *(state as *mut WindowState);
         match message {
             winuser::WM_CLOSE => {
                 let _ = reactor::react(Event::Window {
@@ -259,7 +283,10 @@ extern "system" fn procedure(
                 });
                 return 0; // Do NOT destroy the window yet.
             }
+            // TODO: This will typically not execute (for the last window)
+            //       given the current structure of window destruction.
             winuser::WM_DESTROY => {
+                let _ = Box::from_raw(state);
                 let _ = reactor::react(Event::Window {
                     window: window.into_handle(),
                     event: WindowEvent::Closed(WindowCloseState::Committed),
@@ -336,12 +363,12 @@ extern "system" fn procedure(
                 }
             }
         }
-        winuser::DefWindowProcW(window, message, wparam, lparam)
+        commctrl::DefSubclassProc(window, message, wparam, lparam)
     }) {
-        | Ok(result) => result,
+        Ok(result) => result,
         Err(_) => {
             // All bets are off. Kill the process.
-            process::exit(-1)
+            windows::exit_process(1)
         }
     }
 }
