@@ -1,11 +1,11 @@
 use arrayvec::ArrayVec;
 use std::mem;
-use winapi::shared::{minwindef, windef};
+use winapi::shared::{minwindef, ntdef, windef};
 use winapi::um::winuser;
 
 use backend::IntoRawHandle;
 use display::IntoLogical;
-use event::{ElementState, InputEvent, ModifierState, MouseButton, MouseMovement};
+use event::{ElementState, InputEvent, ModifierState, MouseButton, MouseMovement, MouseWheelDelta};
 
 pub fn parse_raw_input<H>(
     window: H,
@@ -16,9 +16,8 @@ where
 {
     let modifier = ModifierState {}; // TODO: Read modifiers.
     let mut events = ArrayVec::<[InputEvent; 8]>::new();
-    // Only emit movement events if there are no button transitions.
-    if input.usButtonFlags == 0 {
-        unsafe {
+    match input.usButtonFlags {
+        0 => unsafe {
             let mut point = mem::uninitialized();
             events.push(InputEvent::MouseMoved {
                 movement: MouseMovement {
@@ -34,49 +33,59 @@ where
                 },
                 modifier,
             });
+        },
+        winuser::RI_MOUSE_WHEEL => {
+            events.push(InputEvent::MouseWheelRotated {
+                delta: MouseWheelDelta::Rotational(
+                    0.0,
+                    ((input.usButtonData as ntdef::SHORT) / winuser::WHEEL_DELTA) as f64,
+                ),
+                modifier,
+            });
         }
-    }
-    else {
-        let mut push_if = |mask: minwindef::USHORT, button: MouseButton, state: ElementState| {
-            if input.usButtonFlags & mask != 0 {
-                events.push(InputEvent::MouseButtonChanged {
-                    button,
-                    state,
-                    modifier,
-                });
-            }
-        };
-        // TODO: Read other button states.
-        push_if(
-            winuser::RI_MOUSE_LEFT_BUTTON_DOWN,
-            MouseButton::Left,
-            ElementState::Pressed,
-        );
-        push_if(
-            winuser::RI_MOUSE_LEFT_BUTTON_UP,
-            MouseButton::Left,
-            ElementState::Released,
-        );
-        push_if(
-            winuser::RI_MOUSE_RIGHT_BUTTON_DOWN,
-            MouseButton::Right,
-            ElementState::Pressed,
-        );
-        push_if(
-            winuser::RI_MOUSE_RIGHT_BUTTON_UP,
-            MouseButton::Right,
-            ElementState::Released,
-        );
-        push_if(
-            winuser::RI_MOUSE_MIDDLE_BUTTON_DOWN,
-            MouseButton::Center,
-            ElementState::Pressed,
-        );
-        push_if(
-            winuser::RI_MOUSE_MIDDLE_BUTTON_UP,
-            MouseButton::Center,
-            ElementState::Released,
-        );
+        _ => {
+            let mut push_if =
+                |mask: minwindef::USHORT, button: MouseButton, state: ElementState| {
+                    if input.usButtonFlags & mask != 0 {
+                        events.push(InputEvent::MouseButtonChanged {
+                            button,
+                            state,
+                            modifier,
+                        });
+                    }
+                };
+            // TODO: Read other button states.
+            push_if(
+                winuser::RI_MOUSE_LEFT_BUTTON_DOWN,
+                MouseButton::Left,
+                ElementState::Pressed,
+            );
+            push_if(
+                winuser::RI_MOUSE_LEFT_BUTTON_UP,
+                MouseButton::Left,
+                ElementState::Released,
+            );
+            push_if(
+                winuser::RI_MOUSE_RIGHT_BUTTON_DOWN,
+                MouseButton::Right,
+                ElementState::Pressed,
+            );
+            push_if(
+                winuser::RI_MOUSE_RIGHT_BUTTON_UP,
+                MouseButton::Right,
+                ElementState::Released,
+            );
+            push_if(
+                winuser::RI_MOUSE_MIDDLE_BUTTON_DOWN,
+                MouseButton::Center,
+                ElementState::Pressed,
+            );
+            push_if(
+                winuser::RI_MOUSE_MIDDLE_BUTTON_UP,
+                MouseButton::Center,
+                ElementState::Released,
+            );
+        }
     }
     Ok(events)
 }

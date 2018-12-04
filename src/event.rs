@@ -86,6 +86,10 @@ pub enum InputEvent {
         state: ElementState,
         modifier: ModifierState,
     },
+    MouseWheelRotated {
+        delta: MouseWheelDelta,
+        modifier: ModifierState,
+    },
     MouseMoved {
         movement: MouseMovement,
         modifier: ModifierState,
@@ -136,6 +140,12 @@ pub type RelativeMotion = (PhysicalUnit, PhysicalUnit);
 pub struct MouseMovement {
     pub absolute: Option<WindowPosition>,
     pub relative: Option<RelativeMotion>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum MouseWheelDelta {
+    Rotational(f64, f64),
+    Positional(LogicalUnit, LogicalUnit),
 }
 
 pub type GameControllerAxis = u8;
