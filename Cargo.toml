@@ -19,6 +19,7 @@ platform-facade = []
 arrayvec = "0.4.*"
 fool = { git = "https://github.com/olson-sean-k/fool", rev = "12b91c8" }
 lazy_static = "0.2.*"
+num = "0.2.*"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 nix = "0.8.*"

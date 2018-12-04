@@ -1,4 +1,6 @@
+use num::{Integer, Num, One, Zero};
 use std::mem;
+use std::ops::BitAnd;
 use std::os::raw;
 
 mod facade;
@@ -71,5 +73,17 @@ impl OpaqueBuffer {
         let raw = buffer.as_mut_ptr();
         mem::forget(buffer);
         Box::from_raw(mem::transmute::<_, *mut T>(raw))
+    }
+}
+
+fn has_bitflag<T>(value: T, flag: T) -> bool
+where
+    T: BitAnd<Output = T> + Integer + Num + One + Zero,
+{
+    if flag == Zero::zero() {
+        value & One::one() == Zero::zero()
+    }
+    else {
+        value & flag != Zero::zero()
     }
 }

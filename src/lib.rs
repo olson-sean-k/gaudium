@@ -89,6 +89,7 @@ extern crate fool;
 extern crate lazy_static;
 #[cfg(target_os = "linux")]
 extern crate nix;
+extern crate num;
 #[cfg(target_os = "windows")]
 extern crate winapi;
 
