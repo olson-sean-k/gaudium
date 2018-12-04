@@ -2,9 +2,8 @@ use std::collections::HashSet;
 use std::hash::{Hash, Hasher};
 use std::mem;
 use std::panic;
-use std::process;
 use std::ptr;
-use winapi::shared::{basetsd, minwindef, ntdef, windef, windowsx};
+use winapi::shared::{basetsd, minwindef, ntdef, windef};
 use winapi::um::{commctrl, libloaderapi, winuser};
 
 use backend::windows;

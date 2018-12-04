@@ -1,7 +1,6 @@
 use std::cell::RefCell;
 use std::collections::VecDeque;
 use std::mem;
-use std::process;
 use std::ptr;
 use winapi::shared::minwindef;
 use winapi::um::{processthreadsapi, winuser};
@@ -111,7 +110,7 @@ where
     unsafe fn poll(&mut self, message: winuser::LPMSG) -> PollResult {
         let parse = |abort, message: winuser::LPMSG| {
             if abort {
-                unsafe { PollResult::Abort((*message).wParam as minwindef::UINT) }
+                PollResult::Abort((*message).wParam as minwindef::UINT)
             }
             else {
                 PollResult::Dispatch(message)

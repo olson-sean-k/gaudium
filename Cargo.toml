@@ -33,5 +33,4 @@ features = [
     "libloaderapi",
     "processthreadsapi",
     "std",
-    "windowsx",
     "winuser"]

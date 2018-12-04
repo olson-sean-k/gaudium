@@ -5,10 +5,7 @@ use winapi::um::winuser;
 
 use backend::{self, IntoRawHandle};
 use display::IntoLogical;
-use event::{
-    ElementState, InputEvent, ModifierState, MouseButton, MouseMovement, MouseWheelDelta,
-    RelativeMotion,
-};
+use event::{ElementState, InputEvent, ModifierState, MouseButton, MouseMovement, MouseWheelDelta};
 
 const EVENT_BUFFER_SIZE: usize = 8;
 
