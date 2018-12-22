@@ -17,7 +17,7 @@ platform-facade = []
 
 [dependencies]
 arrayvec = "0.4.*"
-fool = { git = "https://github.com/olson-sean-k/fool", rev = "12b91c8" }
+fool = "0.0.1"
 lazy_static = "0.2.*"
 num = "0.2.*"
 
