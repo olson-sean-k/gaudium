@@ -4,8 +4,8 @@ use std::ptr;
 use winapi::shared::{hidpi, hidusage, minwindef, ntdef, windef};
 use winapi::um::winuser;
 
-use backend::{IntoRawHandle, OpaqueBuffer, RawHandle};
-use device::Usage;
+use crate::backend::{IntoRawHandle, OpaqueBuffer, RawHandle};
+use crate::device::Usage;
 
 impl Usage {
     pub fn from_device_info(info: &winuser::RID_DEVICE_INFO) -> Option<Usage> {

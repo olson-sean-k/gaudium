@@ -1,4 +1,4 @@
-use event::Event;
+use crate::event::Event;
 
 pub mod input;
 

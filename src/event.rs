@@ -1,6 +1,6 @@
-use device::{DeviceHandle, Usage};
-use display::{LogicalUnit, PhysicalUnit};
-use window::WindowHandle;
+use crate::device::{DeviceHandle, Usage};
+use crate::display::{LogicalUnit, PhysicalUnit};
+use crate::window::WindowHandle;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Event {

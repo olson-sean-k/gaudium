@@ -1,12 +1,12 @@
 use std::collections::HashSet;
 use std::ops::Deref;
 
-use event::{ElementState, Event, InputEvent, MouseButton, MouseMovement};
-use framework::input::state::{
+use crate::event::{ElementState, Event, InputEvent, MouseButton, MouseMovement};
+use crate::framework::input::state::{
     AsRawState, CompositeState, Element, Snapshot, SnapshotDifference, SnapshotState,
     SnapshotTransition, State,
 };
-use framework::React;
+use crate::framework::React;
 
 impl Element for MouseButton {
     type State = ElementState;

@@ -103,12 +103,12 @@ pub mod reactor;
 pub mod window;
 
 pub mod prelude {
-    pub use event::*;
-    pub use reactor::Poll;
-    pub use reactor::Poll::Abort;
-    pub use reactor::Poll::Ready;
-    pub use reactor::Poll::Timeout;
-    pub use reactor::Poll::Wait;
+    pub use crate::event::*;
+    pub use crate::reactor::Poll;
+    pub use crate::reactor::Poll::Abort;
+    pub use crate::reactor::Poll::Ready;
+    pub use crate::reactor::Poll::Timeout;
+    pub use crate::reactor::Poll::Wait;
 }
 
 #[cfg(test)]
@@ -116,10 +116,10 @@ mod tests {
     use std::sync::mpsc::{self, Sender};
     use std::thread::{self, JoinHandle};
 
-    use platform::windows::*;
-    use prelude::*;
-    use reactor::{EventThread, FromContext, Reactor, ThreadContext};
-    use window::{Window, WindowBuilder};
+    use crate::platform::windows::*;
+    use crate::prelude::*;
+    use crate::reactor::{EventThread, FromContext, Reactor, ThreadContext};
+    use crate::window::{Window, WindowBuilder};
 
     // For sanity.
     #[test]

@@ -1,6 +1,6 @@
 use std::ops::Deref;
 
-use backend;
+use crate::backend;
 
 // Only specific types are re-exported from backend code. These types are
 // opaque, and user code only moves them between Gaudium APIs.

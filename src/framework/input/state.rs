@@ -2,8 +2,8 @@ use std::collections::HashSet;
 use std::hash::Hash;
 use std::ops::Deref;
 
-use event::ElementState;
-use framework::React;
+use crate::event::ElementState;
+use crate::framework::React;
 
 /// An atomic state of an input element.
 pub trait State: Copy + Eq {

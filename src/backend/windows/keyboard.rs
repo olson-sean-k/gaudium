@@ -1,7 +1,7 @@
 use winapi::shared::minwindef;
 use winapi::um::winuser;
 
-use event::{ElementState, InputEvent, ModifierState};
+use crate::event::{ElementState, InputEvent, ModifierState};
 
 pub fn parse_raw_input(input: &winuser::RAWKEYBOARD) -> Result<InputEvent, ()> {
     // TODO: Map the virtual keycode and modifier state.

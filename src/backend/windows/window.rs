@@ -6,14 +6,14 @@ use std::ptr;
 use winapi::shared::{basetsd, minwindef, ntdef, windef};
 use winapi::um::{commctrl, libloaderapi, winuser};
 
-use backend::windows;
-use backend::windows::reactor::ThreadContext;
-use backend::windows::WideNullTerminated;
-use backend::windows::{input, keyboard, mouse, reactor};
-use backend::{FromRawHandle, IntoHandle, IntoRawHandle, RawHandle};
-use device::Usage;
-use display::{IntoLogical, IntoPhysical, LogicalUnit};
-use event::*;
+use crate::backend::windows;
+use crate::backend::windows::reactor::ThreadContext;
+use crate::backend::windows::WideNullTerminated;
+use crate::backend::windows::{input, keyboard, mouse, reactor};
+use crate::backend::{FromRawHandle, IntoHandle, IntoRawHandle, RawHandle};
+use crate::device::Usage;
+use crate::display::{IntoLogical, IntoPhysical, LogicalUnit};
+use crate::event::*;
 
 const WINDOW_SUBCLASS_ID: basetsd::UINT_PTR = 0;
 
@@ -125,7 +125,7 @@ impl Window {
         let WindowBuilder {
             ref title,
             dimensions,
-            exclusive,
+            exclusive: _,
             mut parent,
         } = builder;
         let (parent, style, extended_style) = if let Some(parent) = parent.take() {

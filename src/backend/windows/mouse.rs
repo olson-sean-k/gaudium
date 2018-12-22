@@ -3,9 +3,11 @@ use std::mem;
 use winapi::shared::{minwindef, ntdef, windef};
 use winapi::um::winuser;
 
-use backend::{self, IntoRawHandle};
-use display::IntoLogical;
-use event::{ElementState, InputEvent, ModifierState, MouseButton, MouseMovement, MouseWheelDelta};
+use crate::backend::{self, IntoRawHandle};
+use crate::display::IntoLogical;
+use crate::event::{
+    ElementState, InputEvent, ModifierState, MouseButton, MouseMovement, MouseWheelDelta,
+};
 
 const EVENT_BUFFER_SIZE: usize = 8;
 

@@ -1,8 +1,8 @@
 use std::marker::PhantomData;
 use std::time::Duration;
 
-use backend;
-use event::Event;
+use crate::backend;
+use crate::event::Event;
 
 // Only specific types are re-exported from backend code. These types are
 // opaque, and user code only moves them between Gaudium APIs.

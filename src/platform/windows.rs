@@ -2,9 +2,9 @@
 
 use winapi::shared::{ntdef, windef};
 
-use display::LogicalUnit;
-use reactor::ThreadContext;
-use window::{Window, WindowBuilder};
+use crate::display::LogicalUnit;
+use crate::reactor::ThreadContext;
+use crate::window::{Window, WindowBuilder};
 
 pub trait WindowExt {
     fn insert(&mut self, builder: WindowBuilder, context: &ThreadContext) -> Result<(), ()>;

@@ -1,6 +1,6 @@
-use backend;
-use display::LogicalUnit;
-use reactor::ThreadContext;
+use crate::backend;
+use crate::display::LogicalUnit;
+use crate::reactor::ThreadContext;
 
 // Only specific types are re-exported from backend code. These types are
 // opaque, and user code only moves them between Gaudium APIs.

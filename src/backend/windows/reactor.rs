@@ -5,9 +5,9 @@ use std::ptr;
 use winapi::shared::minwindef;
 use winapi::um::{processthreadsapi, winuser};
 
-use backend::windows;
-use event::*;
-use reactor::{Poll, Reactor, ThreadStatic};
+use crate::backend::windows;
+use crate::event::*;
+use crate::reactor::{Poll, Reactor, ThreadStatic};
 
 thread_local! {
     static EVENT_THREAD: RefCell<Option<*mut React>> = RefCell::new(None);

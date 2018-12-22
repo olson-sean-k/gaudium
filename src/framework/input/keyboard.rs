@@ -1,9 +1,9 @@
 use std::collections::HashSet;
 use std::ops::Deref;
 
-use event::{ElementState, Event, InputEvent, KeyCode};
-use framework::input::state::{AsRawState, Element, Snapshot, SnapshotState};
-use framework::React;
+use crate::event::{ElementState, Event, InputEvent, KeyCode};
+use crate::framework::input::state::{AsRawState, Element, Snapshot, SnapshotState};
+use crate::framework::React;
 
 impl Element for KeyCode {
     type State = ElementState;

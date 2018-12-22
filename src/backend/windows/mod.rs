@@ -5,7 +5,7 @@ use std::ffi::OsStr;
 use winapi::shared::{minwindef, ntdef};
 use winapi::um::processthreadsapi;
 
-use backend::{FromRawHandle, IntoRawHandle, RawHandle};
+use crate::backend::{FromRawHandle, IntoRawHandle, RawHandle};
 
 mod input;
 mod keyboard;
