@@ -272,6 +272,9 @@ extern "system" fn procedure(
 ) -> minwindef::LRESULT {
     // TODO: Is there some way to avoid this overhead? Perhaps an optional and
     //       unsafe `NoPanic` trait for reactors?
+    // TODO: Depending on how this should terminate, this may not require
+    //       `catch_unwind` after https://github.com/rust-lang/rust/pull/55982
+    //       lands.
     match panic::catch_unwind(move || unsafe {
         let state = &mut *(state as *mut WindowState);
         match message {
