@@ -172,6 +172,8 @@ mod tests {
             }
         }
 
-        EventThread::<TestReactor>::run()
+        // TODO: Provide a test framework that doesn't depend on UI
+        //       interaction.
+        //EventThread::<TestReactor>::run()
     }
 }
