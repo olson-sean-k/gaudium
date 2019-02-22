@@ -2,7 +2,7 @@
 //!
 //! # Examples
 //!
-//! ```rust ignore,
+//! ```rust,no_run
 //! use gaudium::prelude::*;
 //! use gaudium::reactor::{EventThread, StatefulReactor, ThreadContext};
 //! use gaudium::window::{Window, WindowBuilder};
