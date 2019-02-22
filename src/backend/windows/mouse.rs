@@ -1,4 +1,5 @@
 use arrayvec::ArrayVec;
+use smallvec::SmallVec;
 use std::mem;
 use winapi::shared::{minwindef, ntdef, windef};
 use winapi::um::winuser;
@@ -9,17 +10,19 @@ use crate::event::{
     ElementState, InputEvent, ModifierState, MouseButton, MouseMovement, MouseWheelDelta,
 };
 
-const EVENT_BUFFER_SIZE: usize = 8;
+const EVENT_BUFFER_THRESHOLD: usize = 8;
+
+type InputEventBuffer = SmallVec<[InputEvent; EVENT_BUFFER_THRESHOLD]>;
 
 pub fn parse_raw_input<H>(
     _: H,
     input: &winuser::RAWMOUSE,
-) -> Result<impl IntoIterator<Item = InputEvent>, ()>
+) -> Result<impl AsRef<[InputEvent]> + IntoIterator<Item = InputEvent>, ()>
 where
     H: IntoRawHandle<windef::HWND>,
 {
     let modifier = ModifierState {}; // TODO: Read modifiers.
-    let mut events = ArrayVec::<[InputEvent; EVENT_BUFFER_SIZE]>::new();
+    let mut events = InputEventBuffer::new();
     if let Ok(event) = parse_movement(input, modifier) {
         events.push(event);
     }
@@ -92,7 +95,7 @@ fn parse_wheel(input: &winuser::RAWMOUSE, modifier: ModifierState) -> Result<Inp
 fn parse_buttons_into(
     input: &winuser::RAWMOUSE,
     modifier: ModifierState,
-    events: &mut ArrayVec<[InputEvent; EVENT_BUFFER_SIZE]>,
+    events: &mut InputEventBuffer,
 ) -> Result<(), ()> {
     let mut push_if = |mask: minwindef::USHORT, button: MouseButton, state: ElementState| {
         if backend::has_bitflag(input.usButtonFlags, mask) {
