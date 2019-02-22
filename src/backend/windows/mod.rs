@@ -1,7 +1,8 @@
-#![cfg(target_os = "windows")]
+#![cfg(all(target_os = "windows", feature = "platform-windows-windows"))]
 
 use arrayvec::ArrayVec;
 use std::ffi::OsStr;
+use std::os::windows::ffi::OsStrExt;
 use winapi::shared::{minwindef, ntdef};
 use winapi::um::processthreadsapi;
 
@@ -25,8 +26,6 @@ where
     T: AsRef<OsStr>,
 {
     fn wide_null_terminated(self) -> Vec<ntdef::WCHAR> {
-        use std::os::windows::ffi::OsStrExt;
-
         self.as_ref()
             .encode_wide()
             .chain(Some(0).into_iter())

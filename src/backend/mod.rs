@@ -3,15 +3,13 @@ use std::mem;
 use std::ops::BitAnd;
 use std::os::raw;
 
-mod facade;
+// Sub-modules are empty on non-target platforms or when disabled by features.
 mod wayland;
 mod windows;
 
-#[cfg(all(not(target_os = "linux"), not(target_os = "windows")))]
-pub use self::facade::*;
-#[cfg(target_os = "linux")]
+#[cfg(all(target_os = "linux", feature = "platform-linux-wayland"))]
 pub use self::wayland::*;
-#[cfg(target_os = "windows")]
+#[cfg(all(target_os = "windows", feature = "platform-windows-windows"))]
 pub use self::windows::*;
 
 pub trait RawHandle: Copy {}

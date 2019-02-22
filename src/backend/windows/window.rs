@@ -1,3 +1,4 @@
+use lazy_static::lazy_static;
 use std::collections::HashSet;
 use std::hash::{Hash, Hasher};
 use std::mem;

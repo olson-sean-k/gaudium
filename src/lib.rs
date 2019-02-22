@@ -22,7 +22,7 @@
 //! })
 //! ```
 //!
-//! ```rust ignore,
+//! ```rust,no_run
 //! use std::sync::mpsc::{self, Sender};
 //! use std::thread::{self, JoinHandle};
 //!
@@ -82,18 +82,6 @@
 //! ```
 
 #![allow(unknown_lints)] // Allow clippy lints.
-
-extern crate arrayvec;
-extern crate fool;
-#[macro_use]
-extern crate lazy_static;
-#[cfg(target_os = "linux")]
-extern crate nix;
-extern crate num;
-#[macro_use]
-extern crate smallvec;
-#[cfg(target_os = "windows")]
-extern crate winapi;
 
 mod backend;
 pub mod device;
