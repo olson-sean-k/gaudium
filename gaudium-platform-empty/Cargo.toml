@@ -1,0 +1,10 @@
+[package]
+name = "gaudium-platform-empty"
+edition = "2018"
+version = "0.0.0"
+authors = ["Sean Olson <olson.sean.k@gmail.com>"]
+license = "MIT"
+
+[dependencies]
+arrayvec = "^0.4.10"
+gaudium-core = { path = "../gaudium-core" }

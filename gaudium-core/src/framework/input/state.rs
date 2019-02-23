@@ -4,6 +4,7 @@ use std::ops::Deref;
 
 use crate::event::ElementState;
 use crate::framework::React;
+use crate::platform::Platform;
 
 /// An atomic state of an input element.
 pub trait State: Copy + Eq {
@@ -89,9 +90,10 @@ where
     fn transition(&self, element: E) -> Option<E::State>;
 }
 
-impl<E, T> SnapshotTransition<E> for T
+impl<P, E, T> SnapshotTransition<E> for T
 where
-    T: Snapshot,
+    P: Platform,
+    T: Snapshot<P>,
     T::State: CompositeState<E>,
     E: Element,
 {
@@ -117,9 +119,10 @@ where
 
 // Blanket implementation for `SnapshotDifference` for composite states
 // represented by a `HashSet`, such as keys and buttons.
-impl<E, S, T> SnapshotDifference<E> for T
+impl<P, E, S, T> SnapshotDifference<E> for T
 where
-    T: Snapshot,
+    P: Platform,
+    T: Snapshot<P>,
     T::State: AsRawState<E, Target = HashSet<E>> + CompositeState<E>,
     E: Element<State = S> + Eq + Hash,
     S: State<Difference = S>,
@@ -149,7 +152,11 @@ pub trait SnapshotState {
 }
 
 /// A container of device state that can snapshot and compare states.
-pub trait Snapshot: Deref<Target = <Self as SnapshotState>::State> + React + SnapshotState {
+pub trait Snapshot<P>:
+    Deref<Target = <Self as SnapshotState>::State> + React<P> + SnapshotState
+where
+    P: Platform,
+{
     /// Snapshots the new (live) state.
     fn snapshot(&mut self);
 }

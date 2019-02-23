@@ -1,0 +1,34 @@
+[package]
+name = "gaudium-platform-windows"
+edition = "2018"
+version = "0.0.0"
+authors = ["Sean Olson <olson.sean.k@gmail.com>"]
+license = "MIT"
+
+[package.metadata.docs.rs]
+all-features = true
+default-target = "x86_64-pc-windows-msvc"
+
+[features]
+default = []
+opengl = []
+
+[dependencies]
+gaudium-core = { path = "../gaudium-core" }
+arrayvec = "^0.4.10"
+fool = "0.0.1"
+lazy_static = "^1.2.0"
+num = "^0.2.0"
+smallvec = "^0.6.9"
+
+[dependencies.winapi]
+features = [
+    "commctrl",
+    "hidpi",
+    "hidusage",
+    "libloaderapi",
+    "processthreadsapi",
+    "std",
+    "winuser"
+]
+version = "^0.3.6"

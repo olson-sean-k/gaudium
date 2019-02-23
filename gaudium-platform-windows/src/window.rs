@@ -1,3 +1,10 @@
+use gaudium_core::device::{DeviceHandle, Usage};
+use gaudium_core::display::{IntoLogical, IntoPhysical, LogicalUnit};
+use gaudium_core::event::{Event, InputEvent, WindowCloseState, WindowEvent};
+use gaudium_core::platform::{self, Handle as _, WindowBuilder as _};
+use gaudium_core::reactor::ThreadContext;
+use gaudium_core::window::WindowHandle;
+use gaudium_core::FromRawHandle;
 use lazy_static::lazy_static;
 use std::collections::HashSet;
 use std::hash::{Hash, Hasher};
@@ -7,14 +14,8 @@ use std::ptr;
 use winapi::shared::{basetsd, minwindef, ntdef, windef};
 use winapi::um::{commctrl, libloaderapi, winuser};
 
-use crate::backend::windows;
-use crate::backend::windows::reactor::ThreadContext;
-use crate::backend::windows::WideNullTerminated;
-use crate::backend::windows::{input, keyboard, mouse, reactor};
-use crate::backend::{FromRawHandle, IntoHandle, IntoRawHandle, RawHandle};
-use crate::device::Usage;
-use crate::display::{IntoLogical, IntoPhysical, LogicalUnit};
-use crate::event::*;
+use crate::input::{self, TryFromDeviceInfo};
+use crate::{keyboard, mouse, reactor, WideNullTerminated};
 
 const WINDOW_SUBCLASS_ID: basetsd::UINT_PTR = 0;
 
@@ -44,26 +45,6 @@ lazy_static! {
     };
 }
 
-impl RawHandle for windef::HWND {}
-
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub struct WindowHandle(windef::HWND);
-
-impl FromRawHandle<windef::HWND> for WindowHandle {
-    fn from_raw_handle(handle: windef::HWND) -> Self {
-        WindowHandle(handle)
-    }
-}
-
-impl IntoRawHandle<windef::HWND> for WindowHandle {
-    fn into_raw_handle(self) -> windef::HWND {
-        self.0
-    }
-}
-
-unsafe impl Send for WindowHandle {}
-unsafe impl Sync for WindowHandle {}
-
 // TODO: This will typically leak given the current structure of window
 //       destruction.
 #[derive(Debug, Default)]
@@ -76,20 +57,19 @@ pub struct WindowBuilder {
     //       targeted, for example. Improve this once it is possible to query
     //       and target displays.
     exclusive: bool,
-    parent: Option<WindowHandle>,
+    parent: Option<windef::HWND>,
 }
 
 impl WindowBuilder {
-    pub fn build(self, context: &ThreadContext) -> Result<Window, ()> {
-        Window::new(self, context)
-    }
-
-    pub fn with_title(&mut self, title: &str) -> &mut Self {
-        self.title = title.to_owned();
+    pub fn with_title<T>(mut self, title: T) -> Self
+    where
+        T: AsRef<str>,
+    {
+        self.title = title.as_ref().to_owned();
         self
     }
 
-    pub fn with_dimensions<T>(&mut self, dimensions: (T, T)) -> &mut Self
+    pub fn with_dimensions<T>(mut self, dimensions: (T, T)) -> Self
     where
         T: Into<LogicalUnit>,
     {
@@ -99,7 +79,7 @@ impl WindowBuilder {
         self
     }
 
-    fn with_parent_window(&mut self, parent: &Window) -> &mut Self {
+    fn with_parent_window(mut self, parent: &Window) -> Self {
         self.parent = Some(parent.handle());
         self
     }
@@ -116,8 +96,16 @@ impl Default for WindowBuilder {
     }
 }
 
+impl platform::WindowBuilder for WindowBuilder {
+    type Window = Window;
+
+    fn build(self, context: &ThreadContext) -> Result<Self::Window, ()> {
+        Window::new(self, context)
+    }
+}
+
 pub struct Window {
-    handle: WindowHandle,
+    handle: windef::HWND,
     children: HashSet<Window>,
 }
 
@@ -131,7 +119,7 @@ impl Window {
         } = builder;
         let (parent, style, extended_style) = if let Some(parent) = parent.take() {
             (
-                parent.into_raw_handle(),
+                parent,
                 winuser::WS_CAPTION | winuser::WS_CHILD | winuser::WS_VISIBLE,
                 winuser::WS_EX_WINDOWEDGE,
             )
@@ -181,7 +169,7 @@ impl Window {
             {
                 return Err(());
             }
-            handle.into_handle()
+            handle
         };
         input::register(handle).unwrap();
         Ok(Window {
@@ -190,20 +178,12 @@ impl Window {
         })
     }
 
-    pub fn insert(
-        &mut self,
-        mut builder: WindowBuilder,
-        context: &ThreadContext,
-    ) -> Result<(), ()> {
-        builder.with_parent_window(self);
+    pub fn insert(&mut self, builder: WindowBuilder, context: &ThreadContext) -> Result<(), ()> {
+        let builder = builder.with_parent_window(self);
         builder
             .build(context)
             .map(|window| self.children.insert(window))
             .map(|_| ())
-    }
-
-    pub fn handle(&self) -> WindowHandle {
-        self.handle
     }
 
     pub fn transform<T>(&self, position: (T, T)) -> Result<(LogicalUnit, LogicalUnit), ()>
@@ -217,7 +197,7 @@ impl Window {
             y: y.into(),
         };
         unsafe {
-            if winuser::ScreenToClient(self.handle.into_raw_handle(), &mut point) != 0 {
+            if winuser::ScreenToClient(self.handle, &mut point) != 0 {
                 Ok((point.x as i32, point.y as i32).into_logical(dpi))
             }
             else {
@@ -229,21 +209,25 @@ impl Window {
     pub fn class_name(&self) -> &[ntdef::WCHAR] {
         WINDOW_CLASS_NAME.as_slice()
     }
-
-    pub fn raw_handle(&self) -> windef::HWND {
-        self.handle.into_raw_handle()
-    }
 }
 
 impl Drop for Window {
     fn drop(&mut self) {
         unsafe {
-            winuser::PostMessageW(self.handle.into_raw_handle(), *WM_DROP, 0, 0);
+            winuser::PostMessageW(self.handle, *WM_DROP, 0, 0);
         }
     }
 }
 
 impl Eq for Window {}
+
+impl platform::Handle for Window {
+    type Handle = windef::HWND;
+
+    fn handle(&self) -> Self::Handle {
+        self.handle
+    }
+}
 
 impl Hash for Window {
     fn hash<H>(&self, state: &mut H)
@@ -281,7 +265,7 @@ extern "system" fn procedure(
         match message {
             winuser::WM_CLOSE => {
                 let _ = reactor::react(Event::Window {
-                    window: window.into_handle(),
+                    window: WindowHandle::from_raw_handle(window),
                     event: WindowEvent::Closed(WindowCloseState::Requested),
                 });
                 return 0; // Do NOT destroy the window yet.
@@ -291,18 +275,18 @@ extern "system" fn procedure(
             winuser::WM_DESTROY => {
                 let _ = Box::from_raw(state);
                 let _ = reactor::react(Event::Window {
-                    window: window.into_handle(),
+                    window: WindowHandle::from_raw_handle(window),
                     event: WindowEvent::Closed(WindowCloseState::Committed),
                 });
             }
             winuser::WM_INPUT => {
                 if let Ok(mut input) = input::raw_input(lparam as winuser::HRAWINPUT) {
-                    let device = input.header.hDevice.into_handle();
+                    let device = input.header.hDevice;
                     match input.header.dwType {
                         winuser::RIM_TYPEKEYBOARD => {
                             if let Ok(event) = keyboard::parse_raw_input(input.data.keyboard()) {
                                 let _ = reactor::react(Event::Input {
-                                    device,
+                                    device: DeviceHandle::from_raw_handle(device),
                                     window: None,
                                     event,
                                 });
@@ -312,7 +296,7 @@ extern "system" fn procedure(
                             if let Ok(events) = mouse::parse_raw_input(window, input.data.mouse()) {
                                 let _ = reactor::enqueue(events.into_iter().map(|event| {
                                     Event::Input {
-                                        device,
+                                        device: DeviceHandle::from_raw_handle(device),
                                         window: None,
                                         event,
                                     }
@@ -343,15 +327,15 @@ extern "system" fn procedure(
                 }
             }
             winuser::WM_INPUT_DEVICE_CHANGE => {
-                let device = (lparam as ntdef::HANDLE).into_handle();
+                let device = lparam as ntdef::HANDLE;
                 let _ = reactor::react(Event::Input {
-                    device,
-                    window: Some(window.into_handle()),
+                    device: DeviceHandle::from_raw_handle(device),
+                    window: Some(WindowHandle::from_raw_handle(window)),
                     event: if (wparam as minwindef::DWORD) == winuser::GIDC_ARRIVAL {
                         InputEvent::Connected {
                             usage: input::device_info(device)
                                 .ok()
-                                .and_then(|info| Usage::from_device_info(&info)),
+                                .and_then(|info| Usage::try_from_device_info(&info)),
                         }
                     }
                     else {
@@ -371,7 +355,7 @@ extern "system" fn procedure(
         Ok(result) => result,
         Err(_) => {
             // All bets are off. Kill the process.
-            windows::exit_process(1)
+            crate::exit_process(1)
         }
     }
 }

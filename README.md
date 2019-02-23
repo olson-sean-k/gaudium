@@ -10,14 +10,18 @@
 
 An _event thread_ is used to process events dispatched from the target
 platform. An event thread manages state and marshals events to a _reactor_,
-which allows user code to react to these events. This code is always executed on
-the event thread and typically runs within platform code (within an OS or
-process event loop, etc.).
+which allows user code to react to these events. This user code is always
+executed on the event thread and typically runs within platform code (within an
+OS or process event loop, etc.).
+
+Reactors can immediately handle events within the event thread or further
+dispatch events to other threads as needed.
 
 ```rust
+use gaudium::platform::{Platform, WindowBuilderExt};
 use gaudium::prelude::*;
 use gaudium::reactor::{EventThread, FromContext, Reactor, ThreadContext};
-use gaudium::window::{Window, WindowBuilder};
+use gaudium::window::{Window, WindowBuilder, WindowHandle};
 use std::sync::mpsc::{self, Sender};
 use std::thread::{self, JoinHandle};
 
@@ -27,11 +31,10 @@ struct TestReactor {
     handle: JoinHandle<()>,
 }
 
-impl FromContext for TestReactor {
-    fn from_context(context: &ThreadContext) -> Self {
+impl FromContext<Platform> for TestReactor {
+    fn from_context(context: &ThreadContext) -> (WindowHandle, Self) {
         let window = WindowBuilder::default()
             .with_title("Gaudium")
-            .with_dimensions((480, 320))
             .build(context)
             .expect("");
         let (tx, rx) = mpsc::channel();
@@ -40,12 +43,13 @@ impl FromContext for TestReactor {
                 println!("{:?}", event);
             }
         });
-        TestReactor { window, tx, handle }
+        (window.handle(), TestReactor { window, tx, handle })
     }
 }
 
-impl Reactor for TestReactor {
+impl Reactor<Platform> for TestReactor {
     fn react(&mut self, _: &ThreadContext, event: Event) -> Poll {
+        use gaudium_core::event::Event; // Required to use variants on stable Rust.
         match event {
             Event::Window {
                 event: WindowEvent::Closed(..),
@@ -94,12 +98,13 @@ directly manipulated by users, but on some platforms a window is a thin
 abstraction for an entire display and only one window can be created per
 process.
 
-## Supported Platforms
+## Platforms and Crates
 
 At this time, Gaudium is very experimental and incomplete. Development is done
 exlcusively against the [Windows SDK](https://crates.io/crates/winapi), but
-Gaudium abstracts this code and additional platforms may be supported in the
-future. Anything in the `0.0.*` series is very unstable!
+Gaudium abstracts this code and additional platform support is planned.
+Anything in the `0.0.*` series is very unstable! Platform support is summarized
+in the following table:
 
 | Platform    | Operating Systems | Status      |
 |-------------|-------------------|-------------|
@@ -107,7 +112,20 @@ future. Anything in the `0.0.*` series is very unstable!
 | Wayland     | Linux             | Planned     |
 | WASM        | n/a               | Planned     |
 
+Gaudium is comprised of multiple crates. The `gaudium-core` crate provides the
+abstraction layer and core constructs. Various `gaudium-platform-*` crates
+provide implementations for platforms. Finally, the `gaudium` crate is an
+optional facade that automatically chooses a suitable platform implementation
+and re-exports types with bindings to that platform and common extension
+traits.
+
+Note that _platforms_ do not always map one-to-one to _targets_ or _operating
+systems_. Platform crates may be viable on more than one target or operating
+system. An implementation is choosen by depending on a viable platform crate
+and binding its API with `gaudium-core`.
+
 Platform-specific features are exposed by extension traits in the `platform`
-module. For example, using the `platform::windows::WindowExt` trait, coordinates
-on a display can be transformed to a window's local coordinate system and child
-windows can be created within a parent window.
+module of `gaudium` or directly from platform crates. For example, by using the
+`platform::WindowExt` trait from `gaudium` on Windows, coordinates on a display
+can be transformed to a window's local coordinate system and child windows can
+be created within a parent window.

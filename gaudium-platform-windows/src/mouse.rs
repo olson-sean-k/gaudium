@@ -1,26 +1,20 @@
-use arrayvec::ArrayVec;
+use gaudium_core::display::IntoLogical;
+use gaudium_core::event::{
+    ElementState, InputEvent, ModifierState, MouseButton, MouseMovement, MouseWheelDelta,
+};
 use smallvec::SmallVec;
 use std::mem;
 use winapi::shared::{minwindef, ntdef, windef};
 use winapi::um::winuser;
 
-use crate::backend::{self, IntoRawHandle};
-use crate::display::IntoLogical;
-use crate::event::{
-    ElementState, InputEvent, ModifierState, MouseButton, MouseMovement, MouseWheelDelta,
-};
+const EVENT_BUFFER_SIZE: usize = 8;
 
-const EVENT_BUFFER_THRESHOLD: usize = 8;
+type InputEventBuffer = SmallVec<[InputEvent; EVENT_BUFFER_SIZE]>;
 
-type InputEventBuffer = SmallVec<[InputEvent; EVENT_BUFFER_THRESHOLD]>;
-
-pub fn parse_raw_input<H>(
-    _: H,
+pub fn parse_raw_input(
+    _: windef::HWND,
     input: &winuser::RAWMOUSE,
-) -> Result<impl AsRef<[InputEvent]> + IntoIterator<Item = InputEvent>, ()>
-where
-    H: IntoRawHandle<windef::HWND>,
-{
+) -> Result<impl AsRef<[InputEvent]> + IntoIterator<Item = InputEvent>, ()> {
     let modifier = ModifierState {}; // TODO: Read modifiers.
     let mut events = InputEventBuffer::new();
     if let Ok(event) = parse_movement(input, modifier) {
@@ -46,7 +40,7 @@ fn parse_movement(input: &winuser::RAWMOUSE, modifier: ModifierState) -> Result<
             },
             // The `MOUSE_MOVE_RELATIVE` flag is typically set. If not, then
             // absolute motion events will be queued for each Raw Input event.
-            relative: if backend::has_bitflag(input.usFlags, winuser::MOUSE_MOVE_RELATIVE) {
+            relative: if crate::has_bitflag(input.usFlags, winuser::MOUSE_MOVE_RELATIVE) {
                 Some((input.lLastX.into(), input.lLastY.into()))
             }
             else {
@@ -78,7 +72,7 @@ fn parse_movement(input: &winuser::RAWMOUSE, modifier: ModifierState) -> Result<
 }
 
 fn parse_wheel(input: &winuser::RAWMOUSE, modifier: ModifierState) -> Result<InputEvent, ()> {
-    if backend::has_bitflag(input.usButtonFlags, winuser::RI_MOUSE_WHEEL) {
+    if crate::has_bitflag(input.usButtonFlags, winuser::RI_MOUSE_WHEEL) {
         Ok(InputEvent::MouseWheelRotated {
             delta: MouseWheelDelta::Rotational(
                 0.0,
@@ -98,7 +92,7 @@ fn parse_buttons_into(
     events: &mut InputEventBuffer,
 ) -> Result<(), ()> {
     let mut push_if = |mask: minwindef::USHORT, button: MouseButton, state: ElementState| {
-        if backend::has_bitflag(input.usButtonFlags, mask) {
+        if crate::has_bitflag(input.usButtonFlags, mask) {
             events.push(InputEvent::MouseButtonChanged {
                 button,
                 state,

@@ -1,10 +1,7 @@
 use std::ops::Deref;
 
-use crate::backend;
-
-// Only specific types are re-exported from backend code. These types are
-// opaque, and user code only moves them between Gaudium APIs.
-pub type DisplayHandle = backend::DisplayHandle;
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub struct DisplayHandle(u64);
 
 pub trait FromLogical<T> {
     fn from_logical(logical: T, dpi: f64) -> Self;

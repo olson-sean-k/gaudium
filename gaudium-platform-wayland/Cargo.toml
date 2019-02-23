@@ -1,0 +1,20 @@
+[package]
+name = "gaudium-platform-wayland"
+edition = "2018"
+version = "0.0.0"
+authors = ["Sean Olson <olson.sean.k@gmail.com>"]
+license = "MIT"
+
+[package.metadata.docs.rs]
+all-features = true
+default-target = "x86_64-unknown-linux-gnu"
+
+[features]
+default = []
+
+[dependencies]
+gaudium-core = { path = "../gaudium-core" }
+arrayvec = "^0.4.10"
+lazy_static = "^1.2.0"
+nix = "^0.13.0"
+smallvec = "^0.6.9"

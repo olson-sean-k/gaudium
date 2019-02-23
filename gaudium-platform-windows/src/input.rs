@@ -1,14 +1,18 @@
+use gaudium_core::device::Usage;
 use std::mem;
 use std::ops::{Deref, DerefMut};
 use std::ptr;
 use winapi::shared::{hidpi, hidusage, minwindef, ntdef, windef};
 use winapi::um::winuser;
 
-use crate::backend::{IntoRawHandle, OpaqueBuffer, RawHandle};
-use crate::device::Usage;
+use crate::OpaqueBuffer;
 
-impl Usage {
-    pub fn from_device_info(info: &winuser::RID_DEVICE_INFO) -> Option<Usage> {
+pub trait TryFromDeviceInfo: Sized {
+    fn try_from_device_info(info: &winuser::RID_DEVICE_INFO) -> Option<Self>;
+}
+
+impl TryFromDeviceInfo for Usage {
+    fn try_from_device_info(info: &winuser::RID_DEVICE_INFO) -> Option<Self> {
         match info.dwType {
             winuser::RIM_TYPEMOUSE => Some(Usage::Mouse),
             winuser::RIM_TYPEKEYBOARD => Some(Usage::Keyboard),
@@ -31,8 +35,6 @@ impl Usage {
         }
     }
 }
-
-impl RawHandle for winuser::HRAWINPUT {}
 
 pub enum RawInput {
     Unboxed(winuser::RAWINPUT),
@@ -59,11 +61,7 @@ impl DerefMut for RawInput {
     }
 }
 
-pub fn register<H>(window: H) -> Result<(), ()>
-where
-    H: IntoRawHandle<windef::HWND>,
-{
-    let window = window.into_raw_handle();
+pub fn register(window: windef::HWND) -> Result<(), ()> {
     // `RIDEV_DEVNOTIFY` enables `WM_INPUT_DEVICE_CHANGE` events. It seems
     // that `RIDEV_INPUTSINK` would be good to use as well, but from some
     // minimal testing it seems that these events are dispatched regardless of
@@ -109,15 +107,12 @@ where
     }
 }
 
-pub fn raw_input_header<H>(device: H) -> Result<winuser::RAWINPUTHEADER, ()>
-where
-    H: IntoRawHandle<winuser::HRAWINPUT>,
-{
+pub fn raw_input_header(device: winuser::HRAWINPUT) -> Result<winuser::RAWINPUTHEADER, ()> {
     unsafe {
         let mut header = mem::uninitialized::<winuser::RAWINPUTHEADER>();
         let mut size = mem::size_of::<winuser::RAWINPUTHEADER>() as u32;
         if winuser::GetRawInputData(
-            device.into_raw_handle(),
+            device,
             winuser::RID_HEADER,
             mem::transmute(&mut header),
             &mut size,
@@ -132,11 +127,7 @@ where
     }
 }
 
-pub fn raw_input<H>(device: H) -> Result<RawInput, ()>
-where
-    H: IntoRawHandle<winuser::HRAWINPUT>,
-{
-    let device = device.into_raw_handle();
+pub fn raw_input(device: winuser::HRAWINPUT) -> Result<RawInput, ()> {
     // Avoid allocations by using the static size of `RAWINPUT` (48 bytes) when
     // reading generic keyboard or mouse input.
     //
@@ -187,11 +178,7 @@ where
     }
 }
 
-pub fn preparsed_data<H>(device: H) -> Result<Box<hidpi::HIDP_PREPARSED_DATA>, ()>
-where
-    H: IntoRawHandle<ntdef::HANDLE>,
-{
-    let device = device.into_raw_handle();
+pub fn preparsed_data(device: ntdef::HANDLE) -> Result<Box<hidpi::HIDP_PREPARSED_DATA>, ()> {
     unsafe {
         let mut size = 0;
         if winuser::GetRawInputDeviceInfoW(
@@ -226,11 +213,7 @@ where
     }
 }
 
-pub fn device_info<H>(device: H) -> Result<Box<winuser::RID_DEVICE_INFO>, ()>
-where
-    H: IntoRawHandle<ntdef::HANDLE>,
-{
-    let device = device.into_raw_handle();
+pub fn device_info(device: ntdef::HANDLE) -> Result<Box<winuser::RID_DEVICE_INFO>, ()> {
     unsafe {
         let mut size = 0;
         if winuser::GetRawInputDeviceInfoW(
@@ -265,11 +248,7 @@ where
     }
 }
 
-pub fn device_name<H>(device: H) -> Result<String, ()>
-where
-    H: IntoRawHandle<ntdef::HANDLE>,
-{
-    let device = device.into_raw_handle();
+pub fn device_name(device: ntdef::HANDLE) -> Result<String, ()> {
     unsafe {
         let mut n = 0;
         if winuser::GetRawInputDeviceInfoW(

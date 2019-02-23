@@ -7,6 +7,7 @@ use crate::framework::input::state::{
     SnapshotTransition, State,
 };
 use crate::framework::React;
+use crate::platform::Platform;
 
 impl Element for MouseButton {
     type State = ElementState;
@@ -58,7 +59,10 @@ impl Deref for MouseSnapshot {
     }
 }
 
-impl Snapshot for MouseSnapshot {
+impl<P> Snapshot<P> for MouseSnapshot
+where
+    P: Platform,
+{
     fn snapshot(&mut self) {
         self.old = self.new.clone();
     }
@@ -109,8 +113,11 @@ impl SnapshotState for MouseSnapshot {
     }
 }
 
-impl React for MouseSnapshot {
-    fn react(&mut self, event: &Event) {
+impl<P> React<P> for MouseSnapshot
+where
+    P: Platform,
+{
+    fn react(&mut self, event: &Event<P>) {
         match *event {
             Event::Input {
                 event: InputEvent::MouseButtonChanged { button, state, .. },

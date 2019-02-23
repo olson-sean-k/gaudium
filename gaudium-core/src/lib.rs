@@ -3,44 +3,55 @@
 //! # Examples
 //!
 //! ```rust,no_run
-//! use gaudium::prelude::*;
-//! use gaudium::reactor::{EventThread, StatefulReactor, ThreadContext};
-//! use gaudium::window::{Window, WindowBuilder};
+//! # extern crate gaudium_core;
+//! # extern crate gaudium_platform_empty;
+//! #
+//! use gaudium_core::prelude::*;
+//! use gaudium_core::reactor::{EventThread, StatefulReactor, ThreadContext};
+//! use gaudium_core::window::{Window, WindowBuilder};
+//! use gaudium_platform_empty::Platform;
 //!
-//! EventThread::run_with_reactor_from(|context| {
-//!     let window = WindowBuilder::default().build(context).unwrap();
-//!     StatefulReactor::from((
+//! # fn main() {
+//! EventThread::<Platform, _>::run_with(|context| {
+//!     let window = WindowBuilder::<Platform>::default().build(context).unwrap();
+//!     (window.handle(), StatefulReactor::from((
 //!         window,
-//!         |_: &mut Window, _: &ThreadContext, event| match event {
+//!         |_: &mut Window<Platform>, _: &ThreadContext, event| match event {
 //!             Event::Window {
 //!                 event: WindowEvent::Closed(..),
 //!                 ..
 //!             } => Abort,
 //!             _ => Wait,
 //!         },
-//!     ))
+//!     )))
 //! })
+//! # }
 //! ```
 //!
 //! ```rust,no_run
+//! # extern crate gaudium_platform_empty;
+//! # extern crate gaudium_core;
+//! #
 //! use std::sync::mpsc::{self, Sender};
 //! use std::thread::{self, JoinHandle};
 //!
-//! use gaudium::prelude::*;
-//! use gaudium::reactor::{EventThread, FromContext, Reactor, ThreadContext};
-//! use gaudium::window::{Window, WindowBuilder};
+//! use gaudium_core::platform::alias::Sink;
+//! use gaudium_core::prelude::*;
+//! use gaudium_core::reactor::{EventThread, FromContext, Reactor, ThreadContext};
+//! use gaudium_core::window::{Window, WindowBuilder};
+//! use gaudium_platform_empty::{Platform, WindowBuilderExt};
 //!
+//! # fn main() {
 //! struct TestReactor {
-//!     window: Window,
-//!     tx: Sender<Event>,
+//!     window: Window<Platform>,
+//!     tx: Sender<Event<Platform>>,
 //!     handle: JoinHandle<()>,
 //! }
 //!
-//! impl FromContext for TestReactor {
-//!     fn from_context(context: &ThreadContext) -> Self {
-//!         let window = WindowBuilder::default()
+//! impl FromContext<Platform> for TestReactor {
+//!     fn from_context(context: &ThreadContext) -> (Sink<Platform>, Self) {
+//!         let window = WindowBuilder::<Platform>::default()
 //!             .with_title("Gaudium")
-//!             .with_dimensions((480, 320))
 //!             .build(context)
 //!             .expect("");
 //!         let (tx, rx) = mpsc::channel();
@@ -49,12 +60,12 @@
 //!                 println!("{:?}", event);
 //!             }
 //!         });
-//!         TestReactor { window, tx, handle }
+//!         (window.handle(), TestReactor { window, tx, handle })
 //!     }
 //! }
 //!
-//! impl Reactor for TestReactor {
-//!     fn react(&mut self, _: &ThreadContext, event: Event) -> Poll {
+//! impl Reactor<Platform> for TestReactor {
+//!     fn react(&mut self, _: &ThreadContext, event: Event<Platform>) -> Poll {
 //!         match event {
 //!             Event::Window {
 //!                 event: WindowEvent::Closed(..),
@@ -78,12 +89,12 @@
 //!     }
 //! }
 //!
-//! EventThread::<TestReactor>::run()
+//! EventThread::<Platform, TestReactor>::run()
+//! # }
 //! ```
 
 #![allow(unknown_lints)] // Allow clippy lints.
 
-mod backend;
 pub mod device;
 pub mod display;
 pub mod event;
@@ -101,44 +112,59 @@ pub mod prelude {
     pub use crate::reactor::Poll::Wait;
 }
 
+pub trait FromRawHandle<T> {
+    fn from_raw_handle(handle: T) -> Self;
+}
+
+pub trait IntoRawHandle<T> {
+    fn into_raw_handle(self) -> T;
+}
+
 #[cfg(test)]
 mod tests {
     use std::sync::mpsc::{self, Sender};
     use std::thread::{self, JoinHandle};
 
-    use crate::platform::windows::*;
+    use crate::platform::alias::*;
+    use crate::platform::Platform;
     use crate::prelude::*;
-    use crate::reactor::{EventThread, FromContext, Reactor, ThreadContext};
+    use crate::reactor::{FromContext, Reactor, ThreadContext};
     use crate::window::{Window, WindowBuilder};
 
     // For sanity.
     #[test]
     fn test() {
-        struct TestReactor {
-            window: Window,
-            tx: Sender<Event>,
+        struct TestReactor<P>
+        where
+            P: Platform,
+        {
+            #[allow(dead_code)]
+            window: Window<P>,
+            tx: Sender<Event<P>>,
             handle: JoinHandle<()>,
         }
 
-        impl FromContext for TestReactor {
-            fn from_context(context: &ThreadContext) -> Self {
-                let window = WindowBuilder::default()
-                    .with_title("Gaudium")
-                    .with_dimensions((480, 320))
-                    .build(context)
-                    .expect("");
+        impl<P> FromContext<P> for TestReactor<P>
+        where
+            P: Platform,
+        {
+            fn from_context(context: &ThreadContext) -> (Sink<P>, Self) {
+                let window = WindowBuilder::<P>::default().build(context).expect("");
                 let (tx, rx) = mpsc::channel();
                 let handle = thread::spawn(move || {
                     while let Ok(event) = rx.recv() {
                         println!("{:?}", event);
                     }
                 });
-                TestReactor { window, tx, handle }
+                (window.handle(), TestReactor { window, tx, handle })
             }
         }
 
-        impl Reactor for TestReactor {
-            fn react(&mut self, _: &ThreadContext, event: Event) -> Poll {
+        impl<P> Reactor<P> for TestReactor<P>
+        where
+            P: Platform,
+        {
+            fn react(&mut self, _: &ThreadContext, event: Event<P>) -> Poll {
                 match event {
                     Event::Window {
                         event: WindowEvent::Closed(..),
@@ -161,9 +187,5 @@ mod tests {
                 let _ = handle.join();
             }
         }
-
-        // TODO: Provide a test framework that doesn't depend on UI
-        //       interaction.
-        //EventThread::<TestReactor>::run()
     }
 }

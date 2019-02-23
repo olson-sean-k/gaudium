@@ -1,0 +1,22 @@
+[package]
+name = "gaudium-core"
+edition = "2018"
+version = "0.0.0"
+authors = ["Sean Olson <olson.sean.k@gmail.com>"]
+license = "MIT"
+description = "Cross-platform display and input abstraction."
+
+[package.metadata.docs.rs]
+all-features = true
+
+[features]
+default = []
+
+[dependencies]
+arrayvec = "^0.4.10"
+fool = "0.0.1"
+lazy_static = "^1.2.0"
+num = "^0.2.0"
+
+[dev-dependencies]
+gaudium-platform-empty = { path = "../gaudium-platform-empty" }

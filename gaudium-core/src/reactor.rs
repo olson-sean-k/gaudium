@@ -1,11 +1,10 @@
 use std::marker::PhantomData;
 use std::time::Duration;
 
-use crate::backend;
 use crate::event::Event;
+use crate::platform::alias::*;
+use crate::platform::{self, Platform};
 
-// Only specific types are re-exported from backend code. These types are
-// opaque, and user code only moves them between Gaudium APIs.
 /// Event thread context.
 ///
 /// A thread context is an opaque type that provides state for event thread
@@ -15,10 +14,12 @@ use crate::event::Event;
 ///
 /// A thread context is used to create `Reactor`s and `Windows`, which must
 /// execute code on the event thread.
-pub type ThreadContext = backend::ThreadContext;
+pub struct ThreadContext {
+    phantom: ThreadStatic,
+}
 
 /// `PhantomData` that prevents auto-implementation of `Send` and `Sync`.
-pub(crate) type ThreadStatic = PhantomData<*mut isize>;
+pub type ThreadStatic = PhantomData<*mut isize>;
 
 /// Poll mode.
 ///
@@ -71,13 +72,16 @@ impl<E> From<Result<Poll, E>> for Poll {
 ///
 /// Reacts to events and controls the poll mode of its event thread. Provides
 /// all user state within an event thread.
-pub trait Reactor: Sized {
+pub trait Reactor<P>: Sized
+where
+    P: Platform,
+{
     /// Reacts to an event.
     ///
     /// Must return a poll mode, which determines how the next event is polled
     /// and dispatched. To end the event thread, `Poll::Abort` should be
     /// returned.
-    fn react(&mut self, context: &ThreadContext, event: Event) -> Poll;
+    fn react(&mut self, context: &ThreadContext, event: Event<P>) -> Poll;
 
     /// Stops the reactor.
     ///
@@ -86,11 +90,12 @@ pub trait Reactor: Sized {
     fn abort(self) {}
 }
 
-impl<F> Reactor for F
+impl<P, F> Reactor<P> for F
 where
-    F: 'static + FnMut(&ThreadContext, Event) -> Poll,
+    P: Platform,
+    F: 'static + FnMut(&ThreadContext, Event<P>) -> Poll,
 {
-    fn react(&mut self, context: &ThreadContext, event: Event) -> Poll {
+    fn react(&mut self, context: &ThreadContext, event: Event<P>) -> Poll {
         (self)(context, event)
     }
 }
@@ -99,22 +104,27 @@ where
 ///
 /// This trait is typically implemented by reactors. A reactor that implements
 /// `FromContext` can be used by `EventThread::run`.
-pub trait FromContext {
-    fn from_context(context: &ThreadContext) -> Self;
+pub trait FromContext<P>: Sized
+where
+    P: Platform,
+{
+    fn from_context(context: &ThreadContext) -> (Sink<P>, Self);
 }
 
-pub trait IntoReactor<R>
+pub trait IntoReactor<P, R>
 where
-    R: Reactor,
+    P: Platform,
+    R: Reactor<P>,
 {
-    fn into_reactor(self) -> R;
+    fn into_reactor(self) -> (Sink<P>, R);
 }
 
-impl<'a, R> IntoReactor<R> for &'a ThreadContext
+impl<'a, P, R> IntoReactor<P, R> for &'a ThreadContext
 where
-    R: FromContext + Reactor,
+    P: Platform,
+    R: FromContext<P> + Reactor<P>,
 {
-    fn into_reactor(self) -> R {
+    fn into_reactor(self) -> (Sink<P>, R) {
         R::from_context(self)
     }
 }
@@ -124,30 +134,38 @@ where
 /// This reactor is created from a tuple of state and a function that reacts to
 /// events. This is useful in simple or small applications. For most
 /// applications, it is preferable to implement `Reactor` instead.
-pub struct StatefulReactor<T, F>
+pub struct StatefulReactor<P, T, F>
 where
-    F: 'static + FnMut(&mut T, &ThreadContext, Event) -> Poll,
+    P: Platform,
+    F: 'static + FnMut(&mut T, &ThreadContext, Event<P>) -> Poll,
 {
     state: T,
     f: F,
+    phantom: PhantomData<P>,
 }
 
-impl<T, F> Reactor for StatefulReactor<T, F>
+impl<P, T, F> Reactor<P> for StatefulReactor<P, T, F>
 where
-    F: 'static + FnMut(&mut T, &ThreadContext, Event) -> Poll,
+    P: Platform,
+    F: 'static + FnMut(&mut T, &ThreadContext, Event<P>) -> Poll,
 {
-    fn react(&mut self, context: &ThreadContext, event: Event) -> Poll {
+    fn react(&mut self, context: &ThreadContext, event: Event<P>) -> Poll {
         (self.f)(&mut self.state, context, event)
     }
 }
 
-impl<T, F> From<(T, F)> for StatefulReactor<T, F>
+impl<P, T, F> From<(T, F)> for StatefulReactor<P, T, F>
 where
-    F: 'static + FnMut(&mut T, &ThreadContext, Event) -> Poll,
+    P: Platform,
+    F: 'static + FnMut(&mut T, &ThreadContext, Event<P>) -> Poll,
 {
     fn from(stateful: (T, F)) -> Self {
         let (state, f) = stateful;
-        StatefulReactor { state, f }
+        StatefulReactor {
+            state,
+            f,
+            phantom: PhantomData,
+        }
     }
 }
 
@@ -162,41 +180,39 @@ where
 /// how the next event is polled and dispatched.
 ///
 /// `EventThread` takes control of the thread on which it is started.
-pub struct EventThread<R>
+pub struct EventThread<P, R>
 where
-    R: Reactor,
+    P: Platform,
+    R: Reactor<P>,
 {
-    phantom: PhantomData<R>,
+    phantom: PhantomData<(P, R)>,
 }
 
-impl<R> EventThread<R>
+impl<P, R> EventThread<P, R>
 where
-    R: Reactor,
+    P: Platform,
+    R: Reactor<P>,
 {
     /// Starts an event thread.
     pub fn run() -> !
     where
-        R: FromContext,
+        R: FromContext<P>,
     {
-        EventThread::<R>::run_with_reactor_from(|context| context.into_reactor())
-    }
-
-    /// Starts an event thread with the given reactor.
-    pub fn run_with_reactor<S>(reactor: S) -> !
-    where
-        S: Into<R>,
-    {
-        backend::EventThread::run_with_reactor(reactor)
+        Self::run_with(|context| context.into_reactor())
     }
 
     /// Starts an event thread with a reactor created with the given function.
     ///
     /// The function accepts a thread context that can be used to create the
     /// reactor and thread-dependent state, such as `Window`s.
-    pub fn run_with_reactor_from<F>(f: F) -> !
+    pub fn run_with<F>(f: F) -> !
     where
-        F: 'static + FnOnce(&ThreadContext) -> R,
+        F: 'static + FnOnce(&ThreadContext) -> (Sink<P>, R),
     {
-        backend::EventThread::run_with_reactor_from(f)
+        let context = ThreadContext {
+            phantom: PhantomData,
+        };
+        let (sink, reactor) = f(&context);
+        <P::EventThread as platform::EventThread<P>>::run(context, sink, reactor)
     }
 }

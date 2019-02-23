@@ -1,25 +1,32 @@
 use crate::device::{DeviceHandle, Usage};
 use crate::display::{LogicalUnit, PhysicalUnit};
+use crate::platform::Platform;
 use crate::window::WindowHandle;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub enum Event {
+pub enum Event<P>
+where
+    P: Platform,
+{
     Application {
         event: ApplicationEvent,
     },
     Input {
-        device: DeviceHandle,
-        window: Option<WindowHandle>,
+        device: DeviceHandle<P>,
+        window: Option<WindowHandle<P>>,
         event: InputEvent,
     },
     Window {
-        window: WindowHandle,
+        window: WindowHandle<P>,
         event: WindowEvent,
     },
 }
 
-impl Event {
-    pub fn into_window_event(self, window: WindowHandle) -> Option<Self> {
+impl<P> Event<P>
+where
+    P: Platform,
+{
+    pub fn into_window_event(self, window: WindowHandle<P>) -> Option<Self> {
         let target = Some(window);
         if match self {
             Event::Input { window, .. } => match window {
@@ -37,7 +44,7 @@ impl Event {
         }
     }
 
-    pub fn into_device_event(self, device: DeviceHandle) -> Option<Self> {
+    pub fn into_device_event(self, device: DeviceHandle<P>) -> Option<Self> {
         let target = device;
         match self {
             Event::Input { device, .. } if target == device => Some(self),

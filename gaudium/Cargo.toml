@@ -1,0 +1,27 @@
+[package]
+name = "gaudium"
+edition = "2018"
+version = "0.0.0"
+authors = ["Sean Olson <olson.sean.k@gmail.com>"]
+license = "MIT"
+description = "Cross-platform display and input abstraction."
+
+[package.metadata.docs.rs]
+
+[features]
+default = []
+# Fail to build instead of falling back to the empty platform implementation.
+build-fail-unsupported = []
+
+[dependencies]
+gaudium-core = { path = "../gaudium-core" }
+gaudium-platform-empty = { path = "../gaudium-platform-empty" }
+
+# TODO: Depend on the Wayland implementation when it is available.
+#
+#  [target.'cfg(target_os = "linux")'.dependencies.gaudium-platform-wayland]
+#  features = []
+#  path = "../gaudium-platform-wayland"
+[target.'cfg(target_os = "windows")'.dependencies.gaudium-platform-windows]
+features = ["opengl"]
+path = "../gaudium-platform-windows"
