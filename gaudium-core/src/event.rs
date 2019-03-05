@@ -62,8 +62,8 @@ where
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum ApplicationEvent {
-    QueueExhausted, // `Poll::Ready`.
-    TimeoutExpired, // `Poll::Timeout`.
+    QueueExhausted, // `Reaction::Ready`.
+    TimeoutExpired, // `Reaction::Timeout`.
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]

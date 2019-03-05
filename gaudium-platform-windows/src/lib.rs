@@ -109,7 +109,7 @@ mod tests {
     fn test() {
         use gaudium_core::platform::alias::*;
         use gaudium_core::prelude::*;
-        use gaudium_core::reactor::{EventThread, FromContext, Reactor, ThreadContext};
+        use gaudium_core::reactor::{FromContext, Reactor, ThreadContext};
         use gaudium_core::window::{Window, WindowBuilder};
         use std::sync::mpsc::{self, Sender};
         use std::thread::{self, JoinHandle};
@@ -138,7 +138,7 @@ mod tests {
         }
 
         impl Reactor<Platform> for TestReactor {
-            fn react(&mut self, _: &ThreadContext, event: Event<Platform>) -> Poll {
+            fn react(&mut self, _: &ThreadContext, event: Event<Platform>) -> Reaction {
                 match event {
                     Event::Window {
                         event: WindowEvent::Closed(..),

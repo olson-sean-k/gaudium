@@ -1,5 +1,4 @@
 use std::marker::PhantomData;
-use std::time::Duration;
 
 use crate::event::Event;
 use crate::platform::alias::*;
@@ -21,22 +20,18 @@ pub struct ThreadContext {
 /// `PhantomData` that prevents auto-implementation of `Send` and `Sync`.
 pub type ThreadStatic = PhantomData<*mut isize>;
 
-/// Poll mode.
+/// Reaction to an event.
 ///
-/// Each time a `Reactor` reacts to an event, it must yield `Poll` to specify
-/// the poll mode used by the event thread. The poll mode determines how the
-/// next event is polled and dispatched.
+/// Each time a `Reactor` reacts to an event, it must yield `Reaction` to
+/// specify the poll mode used by the event thread or to terminate. The poll
+/// mode determines how the next event is polled and dispatched.
 #[derive(Clone, Copy, Eq, PartialEq)]
-pub enum Poll {
+pub enum Reaction {
     /// Dispatch pending events. If there are no pending events, then
     /// `ApplicationEvent::QueueExhausted` is dispatched.
     Ready,
     /// Block the event thread until an event arrives and can be dispatched.
     Wait,
-    /// Block the event thread until an event arrives and can be dispatched or
-    /// the given timeout expires. If the timeout expires, then
-    /// `ApplicationEvent::TimeoutExpired` is dispatched.
-    Timeout(Duration),
     /// Stop the event thread and end the process.
     ///
     /// If a reactor aborts, it may still receive additional events before the
@@ -44,26 +39,26 @@ pub enum Poll {
     Abort,
 }
 
-impl Default for Poll {
+impl Default for Reaction {
     fn default() -> Self {
-        Poll::Wait
+        Reaction::Wait
     }
 }
 
-impl From<Option<Poll>> for Poll {
-    fn from(option: Option<Poll>) -> Self {
+impl From<Option<Reaction>> for Reaction {
+    fn from(option: Option<Reaction>) -> Self {
         match option {
-            Some(poll) => poll,
-            None => Poll::Abort,
+            Some(reaction) => reaction,
+            None => Reaction::Abort,
         }
     }
 }
 
-impl<E> From<Result<Poll, E>> for Poll {
-    fn from(result: Result<Poll, E>) -> Self {
+impl<E> From<Result<Reaction, E>> for Reaction {
+    fn from(result: Result<Reaction, E>) -> Self {
         match result {
-            Ok(poll) => poll,
-            Err(_) => Poll::Abort,
+            Ok(reaction) => reaction,
+            Err(_) => Reaction::Abort,
         }
     }
 }
@@ -78,24 +73,24 @@ where
 {
     /// Reacts to an event.
     ///
-    /// Must return a poll mode, which determines how the next event is polled
-    /// and dispatched. To end the event thread, `Poll::Abort` should be
+    /// Must return a `Reaction`, which determines how the event thread
+    /// responds.  To terminate the event thread, `Reaction::Abort` should be
     /// returned.
-    fn react(&mut self, context: &ThreadContext, event: Event<P>) -> Poll;
+    fn react(&mut self, context: &ThreadContext, event: Event<P>) -> Reaction;
 
     /// Stops the reactor.
     ///
     /// The event thread calls this function when it stops (sometime after
-    /// receiving `Poll::Abort` from the `react`).
+    /// receiving `Reaction::Abort` from `react`).
     fn abort(self) {}
 }
 
 impl<P, F> Reactor<P> for F
 where
     P: Platform,
-    F: 'static + FnMut(&ThreadContext, Event<P>) -> Poll,
+    F: 'static + FnMut(&ThreadContext, Event<P>) -> Reaction,
 {
-    fn react(&mut self, context: &ThreadContext, event: Event<P>) -> Poll {
+    fn react(&mut self, context: &ThreadContext, event: Event<P>) -> Reaction {
         (self)(context, event)
     }
 }
@@ -137,7 +132,7 @@ where
 pub struct StatefulReactor<P, T, F>
 where
     P: Platform,
-    F: 'static + FnMut(&mut T, &ThreadContext, Event<P>) -> Poll,
+    F: 'static + FnMut(&mut T, &ThreadContext, Event<P>) -> Reaction,
 {
     state: T,
     f: F,
@@ -147,9 +142,9 @@ where
 impl<P, T, F> Reactor<P> for StatefulReactor<P, T, F>
 where
     P: Platform,
-    F: 'static + FnMut(&mut T, &ThreadContext, Event<P>) -> Poll,
+    F: 'static + FnMut(&mut T, &ThreadContext, Event<P>) -> Reaction,
 {
-    fn react(&mut self, context: &ThreadContext, event: Event<P>) -> Poll {
+    fn react(&mut self, context: &ThreadContext, event: Event<P>) -> Reaction {
         (self.f)(&mut self.state, context, event)
     }
 }
@@ -157,7 +152,7 @@ where
 impl<P, T, F> From<(T, F)> for StatefulReactor<P, T, F>
 where
     P: Platform,
-    F: 'static + FnMut(&mut T, &ThreadContext, Event<P>) -> Poll,
+    F: 'static + FnMut(&mut T, &ThreadContext, Event<P>) -> Reaction,
 {
     fn from(stateful: (T, F)) -> Self {
         let (state, f) = stateful;

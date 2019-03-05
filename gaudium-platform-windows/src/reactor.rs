@@ -1,6 +1,6 @@
 use gaudium_core::event::{ApplicationEvent, Event};
 use gaudium_core::platform;
-use gaudium_core::reactor::{Poll, Reactor, ThreadContext};
+use gaudium_core::reactor::{Reaction, Reactor, ThreadContext};
 use gaudium_core::window::WindowHandle;
 use std::cell::RefCell;
 use std::collections::VecDeque;
@@ -22,7 +22,7 @@ enum PollResult {
 }
 
 trait React {
-    fn react(&mut self, event: Event<Platform>) -> Poll;
+    fn react(&mut self, event: Event<Platform>) -> Reaction;
     fn enqueue(&mut self, event: Event<Platform>);
 }
 
@@ -31,10 +31,10 @@ where
     R: Reactor<Platform>,
 {
     reactor: R,
+    reaction: Reaction,
     context: ThreadContext,
     thread: minwindef::DWORD,
     queue: VecDeque<Event<Platform>>,
-    poll: Poll,
 }
 
 impl<R> EventThread<R>
@@ -64,7 +64,6 @@ where
         }
     }
 
-    // TODO: Support `Poll::Timeout`.
     unsafe fn poll(&mut self, message: winuser::LPMSG) -> PollResult {
         let parse = |abort, message: winuser::LPMSG| {
             if abort {
@@ -79,8 +78,8 @@ where
             PollResult::Repoll
         }
         else {
-            match self.poll {
-                Poll::Ready => {
+            match self.reaction {
+                Reaction::Ready => {
                     if winuser::PeekMessageW(message, ptr::null_mut(), 0, 0, winuser::PM_REMOVE)
                         == 0
                     {
@@ -112,15 +111,15 @@ impl<R> React for EventThread<R>
 where
     R: Reactor<Platform>,
 {
-    fn react(&mut self, event: Event<Platform>) -> Poll {
-        self.poll = self.reactor.react(&self.context, event);
-        match self.poll {
-            Poll::Abort => unsafe {
+    fn react(&mut self, event: Event<Platform>) -> Reaction {
+        self.reaction = self.reactor.react(&self.context, event);
+        match self.reaction {
+            Reaction::Abort => unsafe {
                 winuser::PostQuitMessage(0);
             },
             _ => {}
         }
-        self.poll
+        self.reaction
     }
 
     fn enqueue(&mut self, event: Event<Platform>) {
@@ -141,16 +140,16 @@ impl platform::EventThread<Platform> for Entry {
             winuser::IsGUIThread(minwindef::TRUE);
             EventThread::<R>::run(EventThread {
                 reactor,
+                reaction: Default::default(),
                 context,
                 thread: processthreadsapi::GetCurrentThreadId(),
                 queue: VecDeque::with_capacity(16),
-                poll: Default::default(),
             })
         }
     }
 }
 
-pub unsafe fn react(event: Event<Platform>) -> Result<Poll, ()> {
+pub unsafe fn react(event: Event<Platform>) -> Result<Reaction, ()> {
     EVENT_THREAD.with(move |thread| {
         if let Some(thread) = *thread.borrow_mut() {
             let thread = mem::transmute::<*mut React, &mut React>(thread);

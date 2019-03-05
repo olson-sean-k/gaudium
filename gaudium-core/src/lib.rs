@@ -65,7 +65,7 @@
 //! }
 //!
 //! impl Reactor<Platform> for TestReactor {
-//!     fn react(&mut self, _: &ThreadContext, event: Event<Platform>) -> Poll {
+//!     fn react(&mut self, _: &ThreadContext, event: Event<Platform>) -> Reaction {
 //!         match event {
 //!             Event::Window {
 //!                 event: WindowEvent::Closed(..),
@@ -105,11 +105,10 @@ pub mod window;
 
 pub mod prelude {
     pub use crate::event::*;
-    pub use crate::reactor::Poll;
-    pub use crate::reactor::Poll::Abort;
-    pub use crate::reactor::Poll::Ready;
-    pub use crate::reactor::Poll::Timeout;
-    pub use crate::reactor::Poll::Wait;
+    pub use crate::reactor::Reaction;
+    pub use crate::reactor::Reaction::Abort;
+    pub use crate::reactor::Reaction::Ready;
+    pub use crate::reactor::Reaction::Wait;
 }
 
 pub trait FromRawHandle<T> {
@@ -164,7 +163,7 @@ mod tests {
         where
             P: Platform,
         {
-            fn react(&mut self, _: &ThreadContext, event: Event<P>) -> Poll {
+            fn react(&mut self, _: &ThreadContext, event: Event<P>) -> Reaction {
                 match event {
                     Event::Window {
                         event: WindowEvent::Closed(..),

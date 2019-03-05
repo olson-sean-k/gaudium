@@ -73,7 +73,7 @@
 //! }
 //!
 //! impl Reactor<Platform> for TestReactor {
-//!     fn react(&mut self, _: &ThreadContext, event: Event) -> Poll {
+//!     fn react(&mut self, _: &ThreadContext, event: Event) -> Reaction {
 //!         use gaudium_core::event::Event; // Required to use variants on stable Rust.
 //!         match event {
 //!             Event::Window {
@@ -160,16 +160,17 @@ pub mod platform {
 
 pub mod prelude {
     pub use crate::event::*;
-    pub use crate::reactor::Poll;
+    pub use crate::reactor::Reaction;
 
-    pub use Poll::Abort;
-    pub use Poll::Wait;
+    pub use Reaction::Abort;
+    pub use Reaction::Ready;
+    pub use Reaction::Wait;
 }
 
 pub mod reactor {
     use crate::platform::Platform;
 
-    pub use gaudium_core::reactor::{FromContext, Poll, Reactor, ThreadContext};
+    pub use gaudium_core::reactor::{FromContext, Reaction, Reactor, ThreadContext};
 
     pub type EventThread<R> = gaudium_core::reactor::EventThread<Platform, R>;
     pub type StatefulReactor<T, F> = gaudium_core::reactor::StatefulReactor<Platform, T, F>;

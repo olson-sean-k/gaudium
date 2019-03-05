@@ -48,7 +48,7 @@ impl FromContext<Platform> for TestReactor {
 }
 
 impl Reactor<Platform> for TestReactor {
-    fn react(&mut self, _: &ThreadContext, event: Event) -> Poll {
+    fn react(&mut self, _: &ThreadContext, event: Event) -> Reaction {
         use gaudium_core::event::Event; // Required to use variants on stable Rust.
         match event {
             Event::Window {
