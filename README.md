@@ -86,8 +86,8 @@ to the other thread to be printed.
 Gaudium provides input events for keyboards, mice, and game controllers,
 including gamepads and joysticks. Gamepads and joysticks are handled in as
 generic a fashion as possible, with no symbolic mappings. The `framework` module
-provides additional tools for tracking state and creating application-specific
-mappings for input devices.
+(in `gaudium-core` and `gaudium`) provides additional tools for managing state
+and creating application-specific mappings for input devices.
 
 ## Displays and Windowing
 
@@ -96,7 +96,8 @@ presented on a _display_, which is a physical device that presents a window to
 the user. On platforms that support desktop environments, a window can be
 directly manipulated by users, but on some platforms a window is a thin
 abstraction for an entire display and only one window can be created per
-process.
+process. On some platforms, closing or dropping a window causes the event thread
+to abort.
 
 ## Platforms and Crates
 
@@ -121,11 +122,13 @@ traits.
 
 Note that _platforms_ do not always map one-to-one to _targets_ or _operating
 systems_. Platform crates may be viable on more than one target or operating
-system. An implementation is choosen by depending on a viable platform crate
-and binding its API with `gaudium-core`.
+system. An implementation is chosen by depending on a viable platform crate and
+binding its API with `gaudium-core`.
 
 Platform-specific features are exposed by extension traits in the `platform`
 module of `gaudium` or directly from platform crates. For example, by using the
 `platform::WindowExt` trait from `gaudium` on Windows, coordinates on a display
 can be transformed to a window's local coordinate system and child windows can
-be created within a parent window.
+be created within a parent window. These extension traits form an implicit API
+that is shared across platform crates, so commonly supported operations can be
+used without conditional code or compilation.
