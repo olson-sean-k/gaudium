@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 
 use crate::event::Event;
 use crate::platform::alias::*;
-use crate::platform::{self, Platform};
+use crate::platform::{Abort, Join, Platform};
 
 /// Event thread context.
 ///
@@ -189,18 +189,18 @@ where
     R: Reactor<P>,
 {
     /// Starts an event thread.
-    pub fn run() -> !
+    pub fn run_and_abort() -> !
     where
         R: FromContext<P>,
     {
-        Self::run_with(|context| context.into_reactor())
+        Self::run_and_abort_with(|context| context.into_reactor())
     }
 
     /// Starts an event thread with a reactor created with the given function.
     ///
     /// The function accepts a thread context that can be used to create the
     /// reactor and thread-dependent state, such as `Window`s.
-    pub fn run_with<F>(f: F) -> !
+    pub fn run_and_abort_with<F>(f: F) -> !
     where
         F: 'static + FnOnce(&ThreadContext) -> (Sink<P>, R),
     {
@@ -208,6 +208,26 @@ where
             phantom: PhantomData,
         };
         let (sink, reactor) = f(&context);
-        <P::EventThread as platform::EventThread<P>>::run(context, sink, reactor)
+        <P::EventThread as Abort<P>>::run_and_abort(context, sink, reactor)
+    }
+
+    pub fn run_and_join()
+    where
+        R: FromContext<P>,
+        P::EventThread: Join<P>,
+    {
+        Self::run_and_join_with(|context| context.into_reactor())
+    }
+
+    pub fn run_and_join_with<F>(f: F)
+    where
+        F: 'static + FnOnce(&ThreadContext) -> (Sink<P>, R),
+        P::EventThread: Join<P>,
+    {
+        let context = ThreadContext {
+            phantom: PhantomData,
+        };
+        let (sink, reactor) = f(&context);
+        <P::EventThread as Join<P>>::run_and_join(context, sink, reactor)
     }
 }

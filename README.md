@@ -73,7 +73,7 @@ impl Reactor<Platform> for TestReactor {
     }
 }
 
-EventThread::<TestReactor>::run()
+EventThread::<TestReactor>::run_and_abort()
 ```
 
 The above example creates a reactor with a window (see below) and spawns another

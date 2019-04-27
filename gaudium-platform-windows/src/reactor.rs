@@ -41,7 +41,7 @@ impl<R> EventThread<R>
 where
     R: Reactor<Platform>,
 {
-    unsafe fn run(mut self) -> ! {
+    unsafe fn run_and_abort(mut self) -> ! {
         EVENT_THREAD.with(|thread| {
             *thread.borrow_mut() = Some(mem::transmute::<&'_ mut React, *mut React>(&mut self));
         });
@@ -131,14 +131,16 @@ pub struct Entry;
 
 impl platform::EventThread<Platform> for Entry {
     type Sink = WindowHandle<Platform>;
+}
 
-    fn run<R>(context: ThreadContext, _: Self::Sink, reactor: R) -> !
+impl platform::Abort<Platform> for Entry {
+    fn run_and_abort<R>(context: ThreadContext, _: Self::Sink, reactor: R) -> !
     where
         R: Reactor<Platform>,
     {
         unsafe {
             winuser::IsGUIThread(minwindef::TRUE);
-            EventThread::<R>::run(EventThread {
+            EventThread::<R>::run_and_abort(EventThread {
                 reactor,
                 reaction: Default::default(),
                 context,

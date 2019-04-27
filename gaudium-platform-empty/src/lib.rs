@@ -42,8 +42,10 @@ mod empty {
 
     impl platform::EventThread<Platform> for EventThread {
         type Sink = WindowHandle<Platform>;
+    }
 
-        fn run<R>(_: ThreadContext, _: Self::Sink, reactor: R) -> !
+    impl platform::Abort<Platform> for EventThread {
+        fn run_and_abort<R>(_: ThreadContext, _: Self::Sink, reactor: R) -> !
         where
             R: Reactor<Platform>,
         {

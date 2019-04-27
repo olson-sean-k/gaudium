@@ -12,7 +12,7 @@
 //! use gaudium_platform_empty::Platform;
 //!
 //! # fn main() {
-//! EventThread::<Platform, _>::run_with(|context| {
+//! EventThread::<Platform, _>::run_and_abort_with(|context| {
 //!     let window = WindowBuilder::<Platform>::default().build(context).unwrap();
 //!     (window.handle(), StatefulReactor::from((
 //!         window,
@@ -89,7 +89,7 @@
 //!     }
 //! }
 //!
-//! EventThread::<Platform, TestReactor>::run()
+//! EventThread::<Platform, TestReactor>::run_and_abort()
 //! # }
 //! ```
 

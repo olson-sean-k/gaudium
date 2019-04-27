@@ -21,7 +21,7 @@
 //! use gaudium::window::{Window, WindowBuilder};
 //!
 //! # fn main() {
-//! EventThread::run_with(|context| {
+//! EventThread::run_and_abort_with(|context| {
 //!     use gaudium_core::event::Event; // Required to use variants on stable Rust.
 //!     let window = WindowBuilder::default().build(context).unwrap();
 //!     (window.handle(), StatefulReactor::from((
@@ -98,7 +98,7 @@
 //!     }
 //! }
 //!
-//! EventThread::<TestReactor>::run()
+//! EventThread::<TestReactor>::run_and_abort()
 //! # }
 //! ```
 

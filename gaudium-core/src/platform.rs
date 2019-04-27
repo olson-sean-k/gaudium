@@ -5,7 +5,7 @@ use crate::reactor::{Reactor, ThreadContext};
 use crate::window::WindowHandle;
 
 pub trait Platform: 'static + Copy + Clone + Debug + PartialEq + Sized {
-    type EventThread: EventThread<Self, Sink = WindowHandle<Self>>;
+    type EventThread: Abort<Self> + EventThread<Self, Sink = WindowHandle<Self>>;
 
     type Window: Handle + Hash + PartialEq + Sized;
     type WindowBuilder: WindowBuilder<Window = Self::Window>;
@@ -19,8 +19,22 @@ where
     P: Platform,
 {
     type Sink;
+}
 
-    fn run<R>(context: ThreadContext, sink: Self::Sink, reactor: R) -> !
+pub trait Abort<P>: EventThread<P>
+where
+    P: Platform,
+{
+    fn run_and_abort<R>(context: ThreadContext, sink: Self::Sink, reactor: R) -> !
+    where
+        R: Reactor<P>;
+}
+
+pub trait Join<P>: EventThread<P>
+where
+    P: Platform,
+{
+    fn run_and_join<R>(context: ThreadContext, sink: Self::Sink, reactor: R)
     where
         R: Reactor<P>;
 }
