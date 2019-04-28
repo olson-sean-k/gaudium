@@ -9,14 +9,14 @@
 //! use gaudium_core::prelude::*;
 //! use gaudium_core::reactor::{EventThread, StatefulReactor, ThreadContext};
 //! use gaudium_core::window::{Window, WindowBuilder};
-//! use gaudium_platform_empty::Platform;
+//! use gaudium_platform_empty::Binding;
 //!
 //! # fn main() {
-//! EventThread::<Platform, _>::run_and_abort_with(|context| {
-//!     let window = WindowBuilder::<Platform>::default().build(context).unwrap();
+//! EventThread::<Binding, _>::run_and_abort_with(|context| {
+//!     let window = WindowBuilder::<Binding>::default().build(context).unwrap();
 //!     (window.handle(), StatefulReactor::from((
 //!         window,
-//!         |_: &mut Window<Platform>, _: &ThreadContext, event| match event {
+//!         |_: &mut Window<Binding>, _: &ThreadContext, event| match event {
 //!             Event::Window {
 //!                 event: WindowEvent::Closed(..),
 //!                 ..
@@ -39,18 +39,18 @@
 //! use gaudium_core::prelude::*;
 //! use gaudium_core::reactor::{EventThread, FromContext, Reactor, ThreadContext};
 //! use gaudium_core::window::{Window, WindowBuilder};
-//! use gaudium_platform_empty::{Platform, WindowBuilderExt};
+//! use gaudium_platform_empty::{Binding, WindowBuilderExt};
 //!
 //! # fn main() {
 //! struct TestReactor {
-//!     window: Window<Platform>,
-//!     tx: Sender<Event<Platform>>,
+//!     window: Window<Binding>,
+//!     tx: Sender<Event<Binding>>,
 //!     handle: JoinHandle<()>,
 //! }
 //!
-//! impl FromContext<Platform> for TestReactor {
-//!     fn from_context(context: &ThreadContext) -> (Sink<Platform>, Self) {
-//!         let window = WindowBuilder::<Platform>::default()
+//! impl FromContext<Binding> for TestReactor {
+//!     fn from_context(context: &ThreadContext) -> (Sink<Binding>, Self) {
+//!         let window = WindowBuilder::<Binding>::default()
 //!             .with_title("Gaudium")
 //!             .build(context)
 //!             .expect("");
@@ -64,8 +64,8 @@
 //!     }
 //! }
 //!
-//! impl Reactor<Platform> for TestReactor {
-//!     fn react(&mut self, _: &ThreadContext, event: Event<Platform>) -> Reaction {
+//! impl Reactor<Binding> for TestReactor {
+//!     fn react(&mut self, _: &ThreadContext, event: Event<Binding>) -> Reaction {
 //!         match event {
 //!             Event::Window {
 //!                 event: WindowEvent::Closed(..),
@@ -89,7 +89,7 @@
 //!     }
 //! }
 //!
-//! EventThread::<Platform, TestReactor>::run_and_abort()
+//! EventThread::<Binding, TestReactor>::run_and_abort()
 //! # }
 //! ```
 
@@ -125,7 +125,7 @@ mod tests {
     use std::thread::{self, JoinHandle};
 
     use crate::platform::alias::*;
-    use crate::platform::Platform;
+    use crate::platform::PlatformBinding;
     use crate::prelude::*;
     use crate::reactor::{FromContext, Reactor, ThreadContext};
     use crate::window::{Window, WindowBuilder};
@@ -135,7 +135,7 @@ mod tests {
     fn test() {
         struct TestReactor<P>
         where
-            P: Platform,
+            P: PlatformBinding,
         {
             #[allow(dead_code)]
             window: Window<P>,
@@ -145,7 +145,7 @@ mod tests {
 
         impl<P> FromContext<P> for TestReactor<P>
         where
-            P: Platform,
+            P: PlatformBinding,
         {
             fn from_context(context: &ThreadContext) -> (Sink<P>, Self) {
                 let window = WindowBuilder::<P>::default().build(context).expect("");
@@ -161,7 +161,7 @@ mod tests {
 
         impl<P> Reactor<P> for TestReactor<P>
         where
-            P: Platform,
+            P: PlatformBinding,
         {
             fn react(&mut self, _: &ThreadContext, event: Event<P>) -> Reaction {
                 match event {

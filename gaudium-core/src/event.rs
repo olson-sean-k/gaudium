@@ -1,12 +1,12 @@
 use crate::device::{DeviceHandle, Usage};
 use crate::display::{LogicalUnit, PhysicalUnit};
-use crate::platform::Platform;
+use crate::platform::PlatformBinding;
 use crate::window::WindowHandle;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Event<P>
 where
-    P: Platform,
+    P: PlatformBinding,
 {
     Application {
         event: ApplicationEvent,
@@ -24,7 +24,7 @@ where
 
 impl<P> Event<P>
 where
-    P: Platform,
+    P: PlatformBinding,
 {
     pub fn into_window_event(self, window: WindowHandle<P>) -> Option<Self> {
         let target = Some(window);

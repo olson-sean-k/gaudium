@@ -1,4 +1,4 @@
-use crate::platform::{alias, Handle, Map, Platform, Proxy};
+use crate::platform::{alias, Handle, Map, PlatformBinding, Proxy};
 use crate::reactor::ThreadContext;
 use crate::{FromRawHandle, IntoRawHandle};
 
@@ -6,11 +6,11 @@ use crate::{FromRawHandle, IntoRawHandle};
 #[derive(Clone, Copy, Debug, Hash, PartialEq)]
 pub struct WindowHandle<P>(alias::WindowHandle<P>)
 where
-    P: Platform;
+    P: PlatformBinding;
 
 impl<P> FromRawHandle<alias::WindowHandle<P>> for WindowHandle<P>
 where
-    P: Platform,
+    P: PlatformBinding,
 {
     fn from_raw_handle(handle: alias::WindowHandle<P>) -> Self {
         WindowHandle(handle)
@@ -19,15 +19,15 @@ where
 
 impl<P> IntoRawHandle<alias::WindowHandle<P>> for WindowHandle<P>
 where
-    P: Platform,
+    P: PlatformBinding,
 {
     fn into_raw_handle(self) -> alias::WindowHandle<P> {
         self.0
     }
 }
 
-unsafe impl<P> Send for WindowHandle<P> where P: Platform {}
-unsafe impl<P> Sync for WindowHandle<P> where P: Platform {}
+unsafe impl<P> Send for WindowHandle<P> where P: PlatformBinding {}
+unsafe impl<P> Sync for WindowHandle<P> where P: PlatformBinding {}
 
 /// Configures and builds a `Window`.
 ///
@@ -39,14 +39,14 @@ unsafe impl<P> Sync for WindowHandle<P> where P: Platform {}
 /// `platform` module.
 pub struct WindowBuilder<P>
 where
-    P: Platform,
+    P: PlatformBinding,
 {
-    inner: <P as Platform>::WindowBuilder,
+    inner: <P as PlatformBinding>::WindowBuilder,
 }
 
 impl<P> WindowBuilder<P>
 where
-    P: Platform,
+    P: PlatformBinding,
 {
     pub fn build(self, context: &ThreadContext) -> Result<Window<P>, ()> {
         Window::new(self, context)
@@ -55,7 +55,7 @@ where
 
 impl<P> Default for WindowBuilder<P>
 where
-    P: Platform,
+    P: PlatformBinding,
 {
     fn default() -> Self {
         WindowBuilder {
@@ -66,14 +66,14 @@ where
 
 impl<P> Proxy for WindowBuilder<P>
 where
-    P: Platform,
+    P: PlatformBinding,
 {
     type Target = P::WindowBuilder;
 }
 
 impl<P> Map for WindowBuilder<P>
 where
-    P: Platform,
+    P: PlatformBinding,
 {
     fn map<F>(self, f: F) -> Self
     where
@@ -106,14 +106,14 @@ where
 #[derive(Eq, Hash, PartialEq)]
 pub struct Window<P>
 where
-    P: Platform,
+    P: PlatformBinding,
 {
     inner: P::Window,
 }
 
 impl<P> Window<P>
 where
-    P: Platform,
+    P: PlatformBinding,
 {
     fn new(builder: WindowBuilder<P>, context: &ThreadContext) -> Result<Self, ()> {
         use crate::platform::WindowBuilder;

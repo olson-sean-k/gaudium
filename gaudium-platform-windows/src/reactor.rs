@@ -9,7 +9,7 @@ use std::ptr;
 use winapi::shared::minwindef;
 use winapi::um::{processthreadsapi, winuser};
 
-use crate::Platform;
+use crate::Binding;
 
 thread_local! {
     static EVENT_THREAD: RefCell<Option<*mut React>> = RefCell::new(None);
@@ -22,24 +22,24 @@ enum PollResult {
 }
 
 trait React {
-    fn react(&mut self, event: Event<Platform>) -> Reaction;
-    fn enqueue(&mut self, event: Event<Platform>);
+    fn react(&mut self, event: Event<Binding>) -> Reaction;
+    fn enqueue(&mut self, event: Event<Binding>);
 }
 
 pub struct EventThread<R>
 where
-    R: Reactor<Platform>,
+    R: Reactor<Binding>,
 {
     reactor: R,
     reaction: Reaction,
     context: ThreadContext,
     thread: minwindef::DWORD,
-    queue: VecDeque<Event<Platform>>,
+    queue: VecDeque<Event<Binding>>,
 }
 
 impl<R> EventThread<R>
 where
-    R: Reactor<Platform>,
+    R: Reactor<Binding>,
 {
     unsafe fn run_and_abort(mut self) -> ! {
         EVENT_THREAD.with(|thread| {
@@ -109,9 +109,9 @@ where
 
 impl<R> React for EventThread<R>
 where
-    R: Reactor<Platform>,
+    R: Reactor<Binding>,
 {
-    fn react(&mut self, event: Event<Platform>) -> Reaction {
+    fn react(&mut self, event: Event<Binding>) -> Reaction {
         self.reaction = self.reactor.react(&self.context, event);
         match self.reaction {
             Reaction::Abort => unsafe {
@@ -122,21 +122,21 @@ where
         self.reaction
     }
 
-    fn enqueue(&mut self, event: Event<Platform>) {
+    fn enqueue(&mut self, event: Event<Binding>) {
         self.queue.push_front(event);
     }
 }
 
 pub struct Entry;
 
-impl platform::EventThread<Platform> for Entry {
-    type Sink = WindowHandle<Platform>;
+impl platform::EventThread<Binding> for Entry {
+    type Sink = WindowHandle<Binding>;
 }
 
-impl platform::Abort<Platform> for Entry {
+impl platform::Abort<Binding> for Entry {
     fn run_and_abort<R>(context: ThreadContext, _: Self::Sink, reactor: R) -> !
     where
-        R: Reactor<Platform>,
+        R: Reactor<Binding>,
     {
         unsafe {
             winuser::IsGUIThread(minwindef::TRUE);
@@ -151,7 +151,7 @@ impl platform::Abort<Platform> for Entry {
     }
 }
 
-pub unsafe fn react(event: Event<Platform>) -> Result<Reaction, ()> {
+pub unsafe fn react(event: Event<Binding>) -> Result<Reaction, ()> {
     EVENT_THREAD.with(move |thread| {
         if let Some(thread) = *thread.borrow_mut() {
             let thread = mem::transmute::<*mut React, &mut React>(thread);
@@ -165,7 +165,7 @@ pub unsafe fn react(event: Event<Platform>) -> Result<Reaction, ()> {
 
 pub unsafe fn enqueue<I>(events: I) -> Result<(), ()>
 where
-    I: IntoIterator<Item = Event<Platform>>,
+    I: IntoIterator<Item = Event<Binding>>,
 {
     EVENT_THREAD.with(move |thread| {
         if let Some(thread) = *thread.borrow_mut() {

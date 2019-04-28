@@ -2,9 +2,9 @@ use gaudium_core::platform::Map;
 use gaudium_core::{platform, window};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub enum Platform {}
+pub enum Binding {}
 
-impl platform::Platform for Platform {
+impl platform::PlatformBinding for Binding {
     type EventThread = empty::EventThread;
 
     type Window = empty::Window;
@@ -19,7 +19,7 @@ pub trait WindowBuilderExt: Sized {
         T: AsRef<str>;
 }
 
-impl WindowBuilderExt for window::WindowBuilder<Platform> {
+impl WindowBuilderExt for window::WindowBuilder<Binding> {
     fn with_title<T>(self, title: T) -> Self
     where
         T: AsRef<str>,
@@ -36,18 +36,18 @@ mod empty {
     use gaudium_core::window::WindowHandle;
     use std::process;
 
-    use crate::Platform;
+    use crate::Binding;
 
     pub struct EventThread;
 
-    impl platform::EventThread<Platform> for EventThread {
-        type Sink = WindowHandle<Platform>;
+    impl platform::EventThread<Binding> for EventThread {
+        type Sink = WindowHandle<Binding>;
     }
 
-    impl platform::Abort<Platform> for EventThread {
+    impl platform::Abort<Binding> for EventThread {
         fn run_and_abort<R>(_: ThreadContext, _: Self::Sink, reactor: R) -> !
         where
-            R: Reactor<Platform>,
+            R: Reactor<Binding>,
         {
             reactor.abort();
             process::abort()

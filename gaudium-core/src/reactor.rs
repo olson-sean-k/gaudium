@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 
 use crate::event::Event;
 use crate::platform::alias::*;
-use crate::platform::{Abort, Join, Platform};
+use crate::platform::{Abort, Join, PlatformBinding};
 
 /// Event thread context.
 ///
@@ -69,7 +69,7 @@ impl<E> From<Result<Reaction, E>> for Reaction {
 /// all user state within an event thread.
 pub trait Reactor<P>: Sized
 where
-    P: Platform,
+    P: PlatformBinding,
 {
     /// Reacts to an event.
     ///
@@ -87,7 +87,7 @@ where
 
 impl<P, F> Reactor<P> for F
 where
-    P: Platform,
+    P: PlatformBinding,
     F: 'static + FnMut(&ThreadContext, Event<P>) -> Reaction,
 {
     fn react(&mut self, context: &ThreadContext, event: Event<P>) -> Reaction {
@@ -101,14 +101,14 @@ where
 /// `FromContext` can be used by `EventThread::run`.
 pub trait FromContext<P>: Sized
 where
-    P: Platform,
+    P: PlatformBinding,
 {
     fn from_context(context: &ThreadContext) -> (Sink<P>, Self);
 }
 
 pub trait IntoReactor<P, R>
 where
-    P: Platform,
+    P: PlatformBinding,
     R: Reactor<P>,
 {
     fn into_reactor(self) -> (Sink<P>, R);
@@ -116,7 +116,7 @@ where
 
 impl<'a, P, R> IntoReactor<P, R> for &'a ThreadContext
 where
-    P: Platform,
+    P: PlatformBinding,
     R: FromContext<P> + Reactor<P>,
 {
     fn into_reactor(self) -> (Sink<P>, R) {
@@ -131,7 +131,7 @@ where
 /// applications, it is preferable to implement `Reactor` instead.
 pub struct StatefulReactor<P, T, F>
 where
-    P: Platform,
+    P: PlatformBinding,
     F: 'static + FnMut(&mut T, &ThreadContext, Event<P>) -> Reaction,
 {
     state: T,
@@ -141,7 +141,7 @@ where
 
 impl<P, T, F> Reactor<P> for StatefulReactor<P, T, F>
 where
-    P: Platform,
+    P: PlatformBinding,
     F: 'static + FnMut(&mut T, &ThreadContext, Event<P>) -> Reaction,
 {
     fn react(&mut self, context: &ThreadContext, event: Event<P>) -> Reaction {
@@ -151,7 +151,7 @@ where
 
 impl<P, T, F> From<(T, F)> for StatefulReactor<P, T, F>
 where
-    P: Platform,
+    P: PlatformBinding,
     F: 'static + FnMut(&mut T, &ThreadContext, Event<P>) -> Reaction,
 {
     fn from(stateful: (T, F)) -> Self {
@@ -177,7 +177,7 @@ where
 /// `EventThread` takes control of the thread on which it is started.
 pub struct EventThread<P, R>
 where
-    P: Platform,
+    P: PlatformBinding,
     R: Reactor<P>,
 {
     phantom: PhantomData<(P, R)>,
@@ -185,7 +185,7 @@ where
 
 impl<P, R> EventThread<P, R>
 where
-    P: Platform,
+    P: PlatformBinding,
     R: Reactor<P>,
 {
     /// Starts an event thread.

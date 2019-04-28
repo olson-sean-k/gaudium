@@ -19,9 +19,9 @@ use gaudium_core::platform;
 use gaudium_core::platform::Map;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub enum Platform {}
+pub enum Binding {}
 
-impl platform::Platform for Platform {
+impl platform::PlatformBinding for Binding {
     type EventThread = reactor::Entry;
 
     type Window = window::Window;
@@ -36,7 +36,7 @@ pub trait WindowBuilderExt: Sized {
         T: AsRef<str>;
 }
 
-impl WindowBuilderExt for gaudium_core::window::WindowBuilder<Platform> {
+impl WindowBuilderExt for gaudium_core::window::WindowBuilder<Binding> {
     fn with_title<T>(self, title: T) -> Self
     where
         T: AsRef<str>,
@@ -114,17 +114,17 @@ mod tests {
         use std::sync::mpsc::{self, Sender};
         use std::thread::{self, JoinHandle};
 
-        use crate::Platform;
+        use crate::Binding;
 
         struct TestReactor {
-            window: Window<Platform>,
-            tx: Sender<Event<Platform>>,
+            window: Window<Binding>,
+            tx: Sender<Event<Binding>>,
             handle: JoinHandle<()>,
         }
 
-        impl FromContext<Platform> for TestReactor {
-            fn from_context(context: &ThreadContext) -> (Sink<Platform>, Self) {
-                let window = WindowBuilder::<Platform>::default()
+        impl FromContext<Binding> for TestReactor {
+            fn from_context(context: &ThreadContext) -> (Sink<Binding>, Self) {
+                let window = WindowBuilder::<Binding>::default()
                     .build(context)
                     .expect("");
                 let (tx, rx) = mpsc::channel();
@@ -137,8 +137,8 @@ mod tests {
             }
         }
 
-        impl Reactor<Platform> for TestReactor {
-            fn react(&mut self, _: &ThreadContext, event: Event<Platform>) -> Reaction {
+        impl Reactor<Binding> for TestReactor {
+            fn react(&mut self, _: &ThreadContext, event: Event<Binding>) -> Reaction {
                 match event {
                     Event::Window {
                         event: WindowEvent::Closed(..),

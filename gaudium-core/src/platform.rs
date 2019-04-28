@@ -4,7 +4,7 @@ use std::hash::Hash;
 use crate::reactor::{Reactor, ThreadContext};
 use crate::window::WindowHandle;
 
-pub trait Platform: 'static + Copy + Clone + Debug + PartialEq + Sized {
+pub trait PlatformBinding: 'static + Copy + Clone + Debug + PartialEq + Sized {
     type EventThread: Abort<Self> + EventThread<Self, Sink = WindowHandle<Self>>;
 
     type Window: Handle + Hash + PartialEq + Sized;
@@ -16,14 +16,14 @@ pub trait Platform: 'static + Copy + Clone + Debug + PartialEq + Sized {
 
 pub trait EventThread<P>
 where
-    P: Platform,
+    P: PlatformBinding,
 {
     type Sink;
 }
 
 pub trait Abort<P>: EventThread<P>
 where
-    P: Platform,
+    P: PlatformBinding,
 {
     fn run_and_abort<R>(context: ThreadContext, sink: Self::Sink, reactor: R) -> !
     where
@@ -32,7 +32,7 @@ where
 
 pub trait Join<P>: EventThread<P>
 where
-    P: Platform,
+    P: PlatformBinding,
 {
     fn run_and_join<R>(context: ThreadContext, sink: Self::Sink, reactor: R)
     where
@@ -83,6 +83,6 @@ pub trait WithMut: Proxy {
 pub mod alias {
     use super::*;
 
-    pub type Sink<P> = <<P as Platform>::EventThread as EventThread<P>>::Sink;
-    pub type WindowHandle<P> = <<P as Platform>::Window as Handle>::Handle;
+    pub type Sink<P> = <<P as PlatformBinding>::EventThread as EventThread<P>>::Sink;
+    pub type WindowHandle<P> = <<P as PlatformBinding>::Window as Handle>::Handle;
 }

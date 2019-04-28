@@ -42,7 +42,7 @@
 //! # extern crate gaudium;
 //! # extern crate gaudium_core;
 //! #
-//! use gaudium::platform::{Platform, WindowBuilderExt};
+//! use gaudium::platform::{Binding, WindowBuilderExt};
 //! use gaudium::prelude::*;
 //! use gaudium::reactor::{EventThread, FromContext, Reactor, ThreadContext};
 //! use gaudium::window::{Window, WindowBuilder, WindowHandle};
@@ -56,7 +56,7 @@
 //!     handle: JoinHandle<()>,
 //! }
 //!
-//! impl FromContext<Platform> for TestReactor {
+//! impl FromContext<Binding> for TestReactor {
 //!     fn from_context(context: &ThreadContext) -> (WindowHandle, Self) {
 //!         let window = WindowBuilder::default()
 //!             .with_title("Gaudium")
@@ -72,7 +72,7 @@
 //!     }
 //! }
 //!
-//! impl Reactor<Platform> for TestReactor {
+//! impl Reactor<Binding> for TestReactor {
 //!     fn react(&mut self, _: &ThreadContext, event: Event) -> Reaction {
 //!         use gaudium_core::event::Event; // Required to use variants on stable Rust.
 //!         match event {
@@ -107,11 +107,11 @@
 pub use gaudium_core::framework;
 
 pub mod device {
-    use crate::platform::Platform;
+    use crate::platform::Binding;
 
     pub use gaudium_core::device::Usage;
 
-    pub type DeviceHandle = gaudium_core::device::DeviceHandle<Platform>;
+    pub type DeviceHandle = gaudium_core::device::DeviceHandle<Binding>;
 }
 
 pub mod display {
@@ -126,7 +126,7 @@ pub mod display {
 }
 
 pub mod event {
-    use crate::platform::Platform;
+    use crate::platform::Binding;
 
     pub use gaudium_core::event::{
         ApplicationEvent, ElementState, GameControllerAxis, GameControllerButton, InputEvent,
@@ -134,7 +134,7 @@ pub mod event {
         ScanCode, WindowCloseState, WindowEvent, WindowPosition,
     };
 
-    pub type Event = gaudium_core::event::Event<Platform>;
+    pub type Event = gaudium_core::event::Event<Binding>;
 }
 
 pub mod platform {
@@ -144,17 +144,17 @@ pub mod platform {
     ))]
     compile_error!("Platform is not supported.");
     #[cfg(not(any(target_os = "linux", target_os = "windows")))]
-    pub use gaudium_platform_empty::{Platform, WindowBuilderExt};
+    pub use gaudium_platform_empty::{Binding, WindowBuilderExt};
     // TODO: Import types from the Wayland implementation when it is available.
     #[cfg(target_os = "linux")]
-    pub use gaudium_platform_empty::{Platform, WindowBuilderExt};
+    pub use gaudium_platform_empty::{Binding, WindowBuilderExt};
     #[cfg(target_os = "windows")]
-    pub use gaudium_platform_windows::{Platform, WindowBuilderExt};
+    pub use gaudium_platform_windows::{Binding, WindowBuilderExt};
 
     pub mod alias {
-        use crate::platform::Platform;
+        use crate::platform::Binding;
 
-        pub type Sink = gaudium_core::platform::alias::Sink<Platform>;
+        pub type Sink = gaudium_core::platform::alias::Sink<Binding>;
     }
 }
 
@@ -168,18 +168,18 @@ pub mod prelude {
 }
 
 pub mod reactor {
-    use crate::platform::Platform;
+    use crate::platform::Binding;
 
     pub use gaudium_core::reactor::{FromContext, Reaction, Reactor, ThreadContext};
 
-    pub type EventThread<R> = gaudium_core::reactor::EventThread<Platform, R>;
-    pub type StatefulReactor<T, F> = gaudium_core::reactor::StatefulReactor<Platform, T, F>;
+    pub type EventThread<R> = gaudium_core::reactor::EventThread<Binding, R>;
+    pub type StatefulReactor<T, F> = gaudium_core::reactor::StatefulReactor<Binding, T, F>;
 }
 
 pub mod window {
-    use crate::platform::Platform;
+    use crate::platform::Binding;
 
-    pub type Window = gaudium_core::window::Window<Platform>;
-    pub type WindowBuilder = gaudium_core::window::WindowBuilder<Platform>;
-    pub type WindowHandle = gaudium_core::window::WindowHandle<Platform>;
+    pub type Window = gaudium_core::window::Window<Binding>;
+    pub type WindowBuilder = gaudium_core::window::WindowBuilder<Binding>;
+    pub type WindowHandle = gaudium_core::window::WindowHandle<Binding>;
 }

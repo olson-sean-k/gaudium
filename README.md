@@ -18,7 +18,7 @@ Reactors can immediately handle events within the event thread or further
 dispatch events to other threads as needed.
 
 ```rust
-use gaudium::platform::{Platform, WindowBuilderExt};
+use gaudium::platform::{Binding, WindowBuilderExt};
 use gaudium::prelude::*;
 use gaudium::reactor::{EventThread, FromContext, Reactor, ThreadContext};
 use gaudium::window::{Window, WindowBuilder, WindowHandle};
@@ -31,7 +31,7 @@ struct TestReactor {
     handle: JoinHandle<()>,
 }
 
-impl FromContext<Platform> for TestReactor {
+impl FromContext<Binding> for TestReactor {
     fn from_context(context: &ThreadContext) -> (WindowHandle, Self) {
         let window = WindowBuilder::default()
             .with_title("Gaudium")
@@ -47,7 +47,7 @@ impl FromContext<Platform> for TestReactor {
     }
 }
 
-impl Reactor<Platform> for TestReactor {
+impl Reactor<Binding> for TestReactor {
     fn react(&mut self, _: &ThreadContext, event: Event) -> Reaction {
         use gaudium_core::event::Event; // Required to use variants on stable Rust.
         match event {
