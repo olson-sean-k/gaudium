@@ -6,9 +6,7 @@ use crate::window::WindowHandle;
 
 pub trait PlatformBinding: 'static + Copy + Clone + Debug + PartialEq + Sized {
     type EventThread: Abort<Self> + EventThread<Self, Sink = WindowHandle<Self>>;
-
-    type Window: Handle + Hash + PartialEq + Sized;
-    type WindowBuilder: WindowBuilder<Window = Self::Window>;
+    type WindowBuilder: WindowBuilder;
 
     // TODO: Should this be exposed directly?
     type DeviceHandle: Copy + Debug + Hash + PartialEq + Sized;
@@ -47,7 +45,7 @@ pub trait Display: Handle + Sized {
 }
 
 pub trait WindowBuilder: Default + Sized {
-    type Window: Handle + Sized;
+    type Window: Eq + Handle + Hash + Sized;
 
     fn build(self, context: &ThreadContext) -> Result<Self::Window, ()>;
 }
@@ -84,5 +82,6 @@ pub mod alias {
     use super::*;
 
     pub type Sink<P> = <<P as PlatformBinding>::EventThread as EventThread<P>>::Sink;
-    pub type WindowHandle<P> = <<P as PlatformBinding>::Window as Handle>::Handle;
+    pub type Window<P> = <<P as PlatformBinding>::WindowBuilder as WindowBuilder>::Window;
+    pub type WindowHandle<P> = <Window<P> as Handle>::Handle;
 }

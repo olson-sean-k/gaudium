@@ -6,8 +6,6 @@ pub enum Binding {}
 
 impl platform::PlatformBinding for Binding {
     type EventThread = empty::EventThread;
-
-    type Window = empty::Window;
     type WindowBuilder = empty::WindowBuilder;
 
     type DeviceHandle = u64;

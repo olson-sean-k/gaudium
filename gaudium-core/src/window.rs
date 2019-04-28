@@ -108,7 +108,7 @@ pub struct Window<P>
 where
     P: PlatformBinding,
 {
-    inner: P::Window,
+    inner: alias::Window<P>,
 }
 
 impl<P> Window<P>

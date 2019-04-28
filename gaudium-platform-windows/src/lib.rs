@@ -23,8 +23,6 @@ pub enum Binding {}
 
 impl platform::PlatformBinding for Binding {
     type EventThread = reactor::Entry;
-
-    type Window = window::Window;
     type WindowBuilder = window::WindowBuilder;
 
     type DeviceHandle = ntdef::HANDLE;
@@ -109,7 +107,7 @@ mod tests {
     fn test() {
         use gaudium_core::platform::alias::*;
         use gaudium_core::prelude::*;
-        use gaudium_core::reactor::{FromContext, Reactor, ThreadContext};
+        use gaudium_core::reactor::{/* EventThread, */ FromContext, Reactor, ThreadContext};
         use gaudium_core::window::{Window, WindowBuilder};
         use std::sync::mpsc::{self, Sender};
         use std::thread::{self, JoinHandle};
@@ -162,6 +160,6 @@ mod tests {
             }
         }
 
-        //EventThread::<Platform, TestReactor>::run()
+        //EventThread::<Binding, TestReactor>::run_and_abort()
     }
 }
