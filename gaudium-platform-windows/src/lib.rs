@@ -33,7 +33,7 @@ pub trait WindowBuilderExt: Sized {
         T: AsRef<str>;
 }
 
-impl WindowBuilderExt for gaudium_core::window::WindowBuilder<Binding> {
+impl<'a> WindowBuilderExt for gaudium_core::window::WindowBuilder<'a, Binding> {
     fn with_title<T>(self, title: T) -> Self
     where
         T: AsRef<str>,
@@ -106,7 +106,7 @@ mod tests {
     fn test() {
         use gaudium_core::platform::alias::*;
         use gaudium_core::prelude::*;
-        use gaudium_core::reactor::{FromContext, Reactor, ThreadContext};
+        use gaudium_core::reactor::{FromWindow, Reactor, ThreadContext};
         use gaudium_core::window::{Window, WindowBuilder};
         use std::sync::mpsc::{self, Sender};
         use std::thread::{self, JoinHandle};
@@ -119,11 +119,9 @@ mod tests {
             handle: JoinHandle<()>,
         }
 
-        impl FromContext<Binding> for TestReactor {
-            fn from_context(context: &ThreadContext) -> (Sink<Binding>, Self) {
-                let window = WindowBuilder::<Binding>::default()
-                    .build(context)
-                    .expect("");
+        impl FromWindow<Binding> for TestReactor {
+            fn from_window(builder: WindowBuilder<Binding>) -> (Sink<Binding>, Self) {
+                let window = builder.build().expect("");
                 let (tx, rx) = mpsc::channel();
                 let handle = thread::spawn(move || {
                     while let Ok(event) = rx.recv() {

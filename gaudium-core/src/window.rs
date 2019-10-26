@@ -37,34 +37,36 @@ unsafe impl<P> Sync for WindowHandle<P> where P: PlatformBinding {}
 /// By default, `WindowBuilder` only exposes very basic configuration. For more
 /// functionality, see the `WindowBuilderExt` extension traits in the
 /// `platform` module.
-pub struct WindowBuilder<P>
+pub struct WindowBuilder<'a, P>
 where
     P: PlatformBinding,
 {
     inner: <P as PlatformBinding>::WindowBuilder,
+    context: &'a ThreadContext,
 }
 
-impl<P> WindowBuilder<P>
+impl<'a, P> WindowBuilder<'a, P>
 where
     P: PlatformBinding,
 {
-    pub fn build(self, context: &ThreadContext) -> Result<Window<P>, ()> {
-        Window::new(self, context)
+    pub fn build(self) -> Result<Window<P>, ()> {
+        Window::new(self)
     }
 }
 
-impl<P> Default for WindowBuilder<P>
+impl<'a, P> From<&'a ThreadContext> for WindowBuilder<'a, P>
 where
     P: PlatformBinding,
 {
-    fn default() -> Self {
+    fn from(context: &'a ThreadContext) -> Self {
         WindowBuilder {
             inner: Default::default(),
+            context,
         }
     }
 }
 
-impl<P> Proxy for WindowBuilder<P>
+impl<'a, P> Proxy for WindowBuilder<'a, P>
 where
     P: PlatformBinding,
 {
@@ -82,8 +84,11 @@ where
     where
         F: FnOnce(Self::Inner) -> Self::Inner,
     {
-        let WindowBuilder { inner } = self;
-        WindowBuilder { inner: f(inner) }
+        let WindowBuilder { inner, context } = self;
+        WindowBuilder {
+            inner: f(inner),
+            context,
+        }
     }
 }
 
@@ -118,11 +123,15 @@ impl<P> Window<P>
 where
     P: PlatformBinding,
 {
-    fn new(builder: WindowBuilder<P>, context: &ThreadContext) -> Result<Self, ()> {
-        use crate::platform::WindowBuilder;
+    fn new(builder: WindowBuilder<P>) -> Result<Self, ()> {
+        use crate::platform::WindowBuilder as _;
 
+        let WindowBuilder {
+            inner: builder,
+            context,
+        } = builder;
         let window = Window {
-            inner: builder.inner.build(context)?,
+            inner: builder.build(context)?,
         };
         Ok(window)
     }

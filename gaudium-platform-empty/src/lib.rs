@@ -17,7 +17,7 @@ pub trait WindowBuilderExt: Sized {
         T: AsRef<str>;
 }
 
-impl WindowBuilderExt for window::WindowBuilder<Binding> {
+impl<'a> WindowBuilderExt for window::WindowBuilder<'a, Binding> {
     fn with_title<T>(self, title: T) -> Self
     where
         T: AsRef<str>,

@@ -12,8 +12,8 @@
 //! use gaudium_platform_empty::Binding;
 //!
 //! # fn main() {
-//! EventThread::<Binding, _>::run_and_abort_with(|context| {
-//!     let window = WindowBuilder::<Binding>::default().build(context).unwrap();
+//! EventThread::<Binding, _>::run_and_abort_with(|builder| {
+//!     let window = builder.build().unwrap();
 //!     (window.handle(), StatefulReactor::from((
 //!         window,
 //!         |_: &mut Window<Binding>, _: &ThreadContext, event| match event {
@@ -37,7 +37,7 @@
 //!
 //! use gaudium_core::platform::alias::Sink;
 //! use gaudium_core::prelude::*;
-//! use gaudium_core::reactor::{EventThread, FromContext, Reactor, ThreadContext};
+//! use gaudium_core::reactor::{EventThread, FromWindow, Reactor, ThreadContext};
 //! use gaudium_core::window::{Window, WindowBuilder};
 //! use gaudium_platform_empty::{Binding, WindowBuilderExt};
 //!
@@ -48,11 +48,11 @@
 //!     handle: JoinHandle<()>,
 //! }
 //!
-//! impl FromContext<Binding> for TestReactor {
-//!     fn from_context(context: &ThreadContext) -> (Sink<Binding>, Self) {
-//!         let window = WindowBuilder::<Binding>::default()
+//! impl FromWindow<Binding> for TestReactor {
+//!     fn from_window(builder: WindowBuilder<Binding>) -> (Sink<Binding>, Self) {
+//!         let window = builder
 //!             .with_title("Gaudium")
-//!             .build(context)
+//!             .build()
 //!             .expect("");
 //!         let (tx, rx) = mpsc::channel();
 //!         let handle = thread::spawn(move || {
@@ -127,7 +127,7 @@ mod tests {
     use crate::platform::alias::*;
     use crate::platform::PlatformBinding;
     use crate::prelude::*;
-    use crate::reactor::{FromContext, Reactor, ThreadContext};
+    use crate::reactor::{FromWindow, Reactor, ThreadContext};
     use crate::window::{Window, WindowBuilder};
 
     // For sanity.
@@ -143,12 +143,12 @@ mod tests {
             handle: JoinHandle<()>,
         }
 
-        impl<P> FromContext<P> for TestReactor<P>
+        impl<P> FromWindow<P> for TestReactor<P>
         where
             P: PlatformBinding,
         {
-            fn from_context(context: &ThreadContext) -> (Sink<P>, Self) {
-                let window = WindowBuilder::<P>::default().build(context).expect("");
+            fn from_window(builder: WindowBuilder<P>) -> (Sink<P>, Self) {
+                let window = builder.build().expect("");
                 let (tx, rx) = mpsc::channel();
                 let handle = thread::spawn(move || {
                     while let Ok(event) = rx.recv() {

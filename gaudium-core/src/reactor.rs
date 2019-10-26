@@ -3,6 +3,7 @@ use std::marker::PhantomData;
 use crate::event::Event;
 use crate::platform::alias::*;
 use crate::platform::{Abort, Join, PlatformBinding};
+use crate::window::WindowBuilder;
 
 /// Event thread context.
 ///
@@ -14,7 +15,13 @@ use crate::platform::{Abort, Join, PlatformBinding};
 /// A thread context is used to create `Reactor`s and `Windows`, which must
 /// execute code on the event thread.
 pub struct ThreadContext {
+    pub state: ReactorState,
     phantom: ThreadStatic,
+}
+
+pub enum ReactorState {
+    Start,
+    Run,
 }
 
 /// `PhantomData` that prevents auto-implementation of `Send` and `Sync`.
@@ -99,11 +106,11 @@ where
 ///
 /// This trait is typically implemented by reactors. A reactor that implements
 /// `FromContext` can be used by `EventThread::run`.
-pub trait FromContext<P>: Sized
+pub trait FromWindow<P>: Sized
 where
     P: PlatformBinding,
 {
-    fn from_context(context: &ThreadContext) -> (Sink<P>, Self);
+    fn from_window(builder: WindowBuilder<P>) -> (Sink<P>, Self);
 }
 
 pub trait IntoReactor<P, R>
@@ -114,13 +121,13 @@ where
     fn into_reactor(self) -> (Sink<P>, R);
 }
 
-impl<'a, P, R> IntoReactor<P, R> for &'a ThreadContext
+impl<'a, P, R> IntoReactor<P, R> for WindowBuilder<'a, P>
 where
     P: PlatformBinding,
-    R: FromContext<P> + Reactor<P>,
+    R: FromWindow<P> + Reactor<P>,
 {
     fn into_reactor(self) -> (Sink<P>, R) {
-        R::from_context(self)
+        R::from_window(self)
     }
 }
 
@@ -191,9 +198,9 @@ where
     /// Starts an event thread.
     pub fn run_and_abort() -> !
     where
-        R: FromContext<P>,
+        R: FromWindow<P>,
     {
-        Self::run_and_abort_with(|context| context.into_reactor())
+        Self::run_and_abort_with(|builder| builder.into_reactor())
     }
 
     /// Starts an event thread with a reactor created with the given function.
@@ -202,32 +209,39 @@ where
     /// reactor and thread-dependent state, such as `Window`s.
     pub fn run_and_abort_with<F>(f: F) -> !
     where
-        F: 'static + FnOnce(&ThreadContext) -> (Sink<P>, R),
+        F: 'static + FnOnce(WindowBuilder<P>) -> (Sink<P>, R),
     {
-        let context = ThreadContext {
-            phantom: PhantomData,
-        };
-        let (sink, reactor) = f(&context);
+        let (context, sink, reactor) = Self::from_window_with(f);
         <P::EventThread as Abort<P>>::run_and_abort(context, sink, reactor)
     }
 
     pub fn run_and_join()
     where
-        R: FromContext<P>,
+        R: FromWindow<P>,
         P::EventThread: Join<P>,
     {
-        Self::run_and_join_with(|context| context.into_reactor())
+        Self::run_and_join_with(|builder| builder.into_reactor())
     }
 
     pub fn run_and_join_with<F>(f: F)
     where
-        F: 'static + FnOnce(&ThreadContext) -> (Sink<P>, R),
+        F: 'static + FnOnce(WindowBuilder<P>) -> (Sink<P>, R),
         P::EventThread: Join<P>,
     {
-        let context = ThreadContext {
+        let (context, sink, reactor) = Self::from_window_with(f);
+        <P::EventThread as Join<P>>::run_and_join(context, sink, reactor)
+    }
+
+    fn from_window_with<F>(f: F) -> (ThreadContext, Sink<P>, R)
+    where
+        F: 'static + FnOnce(WindowBuilder<P>) -> (Sink<P>, R),
+    {
+        let mut context = ThreadContext {
+            state: ReactorState::Start,
             phantom: PhantomData,
         };
-        let (sink, reactor) = f(&context);
-        <P::EventThread as Join<P>>::run_and_join(context, sink, reactor)
+        let (sink, reactor) = f((&context).into());
+        context.state = ReactorState::Run;
+        (context, sink, reactor)
     }
 }

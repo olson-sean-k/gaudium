@@ -17,8 +17,8 @@
 //! use gaudium::reactor::{EventThread, StatefulReactor, ThreadContext};
 //! use gaudium::window::{Window, WindowBuilder};
 //!
-//! EventThread::run_and_abort_with(|context| {
-//!     let window = WindowBuilder::default().build(context).unwrap();
+//! EventThread::run_and_abort_with(|builder| {
+//!     let window = builder.build().unwrap();
 //!     (window.handle(), StatefulReactor::from((
 //!         window,
 //!         |_: &mut Window, _: &ThreadContext, event| match event {
@@ -35,7 +35,7 @@
 //! ```rust,no_run
 //! use gaudium::platform::{Binding, WindowBuilderExt};
 //! use gaudium::prelude::*;
-//! use gaudium::reactor::{EventThread, FromContext, Reactor, ThreadContext};
+//! use gaudium::reactor::{EventThread, FromWindow, Reactor, ThreadContext};
 //! use gaudium::window::{Window, WindowBuilder, WindowHandle};
 //! use std::sync::mpsc::{self, Sender};
 //! use std::thread::{self, JoinHandle};
@@ -46,11 +46,11 @@
 //!     handle: JoinHandle<()>,
 //! }
 //!
-//! impl FromContext<Binding> for TestReactor {
-//!     fn from_context(context: &ThreadContext) -> (WindowHandle, Self) {
-//!         let window = WindowBuilder::default()
+//! impl FromWindow<Binding> for TestReactor {
+//!     fn from_window(builder: WindowBuilder) -> (WindowHandle, Self) {
+//!         let window = builder
 //!             .with_title("Gaudium")
-//!             .build(context)
+//!             .build()
 //!             .expect("");
 //!         let (tx, rx) = mpsc::channel();
 //!         let handle = thread::spawn(move || {
@@ -158,7 +158,7 @@ pub mod prelude {
 pub mod reactor {
     use crate::platform::Binding;
 
-    pub use gaudium_core::reactor::{FromContext, Reaction, Reactor, ThreadContext};
+    pub use gaudium_core::reactor::{FromWindow, Reaction, Reactor, ThreadContext};
 
     pub type EventThread<R> = gaudium_core::reactor::EventThread<Binding, R>;
     pub type StatefulReactor<T, F> = gaudium_core::reactor::StatefulReactor<Binding, T, F>;
@@ -168,6 +168,6 @@ pub mod window {
     use crate::platform::Binding;
 
     pub type Window = gaudium_core::window::Window<Binding>;
-    pub type WindowBuilder = gaudium_core::window::WindowBuilder<Binding>;
+    pub type WindowBuilder<'a> = gaudium_core::window::WindowBuilder<'a, Binding>;
     pub type WindowHandle = gaudium_core::window::WindowHandle<Binding>;
 }
