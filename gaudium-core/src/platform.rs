@@ -57,25 +57,15 @@ pub trait Handle {
 }
 
 pub trait Proxy {
-    type Target;
-}
+    type Inner;
 
-pub trait Map: Proxy {
+    fn as_inner(&self) -> &Self::Inner;
+
+    fn as_inner_mut(&mut self) -> &mut Self::Inner;
+
     fn map<F>(self, f: F) -> Self
     where
-        F: FnOnce(Self::Target) -> Self::Target;
-}
-
-pub trait With: Proxy {
-    fn with<F>(&self, f: F)
-    where
-        F: FnOnce(&Self::Target);
-}
-
-pub trait WithMut: Proxy {
-    fn with_mut<F>(&mut self, f: F)
-    where
-        F: FnOnce(&mut Self::Target);
+        F: FnOnce(Self::Inner) -> Self::Inner;
 }
 
 pub mod alias {

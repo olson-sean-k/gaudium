@@ -1,4 +1,4 @@
-use crate::platform::{alias, Handle, Map, PlatformBinding, Proxy};
+use crate::platform::{alias, Handle, PlatformBinding, Proxy};
 use crate::reactor::ThreadContext;
 use crate::{FromRawHandle, IntoRawHandle};
 
@@ -68,16 +68,19 @@ impl<P> Proxy for WindowBuilder<P>
 where
     P: PlatformBinding,
 {
-    type Target = P::WindowBuilder;
-}
+    type Inner = P::WindowBuilder;
 
-impl<P> Map for WindowBuilder<P>
-where
-    P: PlatformBinding,
-{
+    fn as_inner(&self) -> &Self::Inner {
+        &self.inner
+    }
+
+    fn as_inner_mut(&mut self) -> &mut Self::Inner {
+        &mut self.inner
+    }
+
     fn map<F>(self, f: F) -> Self
     where
-        F: FnOnce(Self::Target) -> Self::Target,
+        F: FnOnce(Self::Inner) -> Self::Inner,
     {
         let WindowBuilder { inner } = self;
         WindowBuilder { inner: f(inner) }

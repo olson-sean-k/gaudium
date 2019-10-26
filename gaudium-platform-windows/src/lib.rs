@@ -15,7 +15,7 @@ mod mouse;
 mod reactor;
 mod window;
 
-use gaudium_core::platform::{self, Map};
+use gaudium_core::platform::{self, Proxy};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Binding {}

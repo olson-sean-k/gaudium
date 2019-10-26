@@ -1,5 +1,5 @@
-use gaudium_core::platform::Map;
-use gaudium_core::{platform, window};
+use gaudium_core::platform::{self, Proxy};
+use gaudium_core::window;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Binding {}
