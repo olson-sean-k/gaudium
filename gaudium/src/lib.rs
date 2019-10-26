@@ -13,16 +13,11 @@
 //! # Examples
 //!
 //! ```rust,no_run
-//! # extern crate gaudium;
-//! # extern crate gaudium_core;
-//! #
 //! use gaudium::prelude::*;
 //! use gaudium::reactor::{EventThread, StatefulReactor, ThreadContext};
 //! use gaudium::window::{Window, WindowBuilder};
 //!
-//! # fn main() {
 //! EventThread::run_and_abort_with(|context| {
-//!     use gaudium_core::event::Event; // Required to use variants on stable Rust.
 //!     let window = WindowBuilder::default().build(context).unwrap();
 //!     (window.handle(), StatefulReactor::from((
 //!         window,
@@ -35,13 +30,9 @@
 //!         },
 //!     )))
 //! })
-//! # }
 //! ```
 //!
 //! ```rust,no_run
-//! # extern crate gaudium;
-//! # extern crate gaudium_core;
-//! #
 //! use gaudium::platform::{Binding, WindowBuilderExt};
 //! use gaudium::prelude::*;
 //! use gaudium::reactor::{EventThread, FromContext, Reactor, ThreadContext};
@@ -49,7 +40,6 @@
 //! use std::sync::mpsc::{self, Sender};
 //! use std::thread::{self, JoinHandle};
 //!
-//! # fn main() {
 //! struct TestReactor {
 //!     window: Window,
 //!     tx: Sender<Event>,
@@ -74,7 +64,6 @@
 //!
 //! impl Reactor<Binding> for TestReactor {
 //!     fn react(&mut self, _: &ThreadContext, event: Event) -> Reaction {
-//!         use gaudium_core::event::Event; // Required to use variants on stable Rust.
 //!         match event {
 //!             Event::Window {
 //!                 event: WindowEvent::Closed(..),
@@ -99,7 +88,6 @@
 //! }
 //!
 //! EventThread::<TestReactor>::run_and_abort()
-//! # }
 //! ```
 
 #![allow(unknown_lints)] // Allow clippy lints.

@@ -49,7 +49,6 @@ impl FromContext<Binding> for TestReactor {
 
 impl Reactor<Binding> for TestReactor {
     fn react(&mut self, _: &ThreadContext, event: Event) -> Reaction {
-        use gaudium_core::event::Event; // Required to use variants on stable Rust.
         match event {
             Event::Window {
                 event: WindowEvent::Closed(..),
