@@ -6,24 +6,47 @@ use std::cell::RefCell;
 use std::collections::VecDeque;
 use std::mem;
 use std::ptr;
-use winapi::shared::minwindef;
+use winapi::shared::{minwindef, windef};
 use winapi::um::{processthreadsapi, winuser};
 
 use crate::Binding;
 
 thread_local! {
-    static EVENT_THREAD: RefCell<Option<*mut React>> = RefCell::new(None);
+    static EVENT_THREAD: RefCell<Option<*mut dyn React>> = RefCell::new(None);
 }
 
-enum PollResult {
+enum ControlFlow {
     Dispatch(*const winuser::MSG),
-    Repoll,
+    Continue,
     Abort(minwindef::UINT),
 }
 
 trait React {
     fn react(&mut self, event: Event<Binding>) -> Reaction;
     fn enqueue(&mut self, event: Event<Binding>);
+}
+
+trait MessageExt {
+    fn empty() -> Self;
+
+    fn to_exit_code(&self) -> minwindef::UINT;
+}
+
+impl MessageExt for winuser::MSG {
+    fn empty() -> Self {
+        winuser::MSG {
+            hwnd: ptr::null_mut(),
+            message: 0,
+            wParam: 0,
+            lParam: 0,
+            time: 0,
+            pt: windef::POINT { x: 0, y: 0 },
+        }
+    }
+
+    fn to_exit_code(&self) -> minwindef::UINT {
+        self.wParam as minwindef::UINT
+    }
 }
 
 pub struct EventThread<R>
@@ -43,20 +66,22 @@ where
 {
     unsafe fn run_and_abort(mut self) -> ! {
         EVENT_THREAD.with(|thread| {
-            *thread.borrow_mut() = Some(mem::transmute::<&'_ mut React, *mut React>(&mut self));
+            *thread.borrow_mut() = Some(mem::transmute::<&'_ mut dyn React, *mut dyn React>(
+                &mut self,
+            ));
         });
-        let mut message = mem::uninitialized();
+        let mut message = MessageExt::empty();
         loop {
-            match self.poll(&mut message) {
-                PollResult::Dispatch(message) => {
+            match self.pop(&mut message) {
+                ControlFlow::Dispatch(message) => {
                     winuser::TranslateMessage(message);
                     winuser::DispatchMessageW(message);
                 }
-                PollResult::Abort(code) => {
+                ControlFlow::Abort(code) => {
+                    self.abort(); // Drop the reactor and all state.
                     EVENT_THREAD.with(|thread| {
                         *thread.borrow_mut() = None;
                     });
-                    self.abort(); // Drop the reactor and all state.
                     crate::exit_process(code)
                 }
                 _ => {}
@@ -64,18 +89,23 @@ where
         }
     }
 
-    unsafe fn poll(&mut self, message: winuser::LPMSG) -> PollResult {
-        let parse = |abort, message: winuser::LPMSG| {
-            if abort {
-                PollResult::Abort((*message).wParam as minwindef::UINT)
+    unsafe fn run_and_join(self) {
+        unimplemented!()
+    }
+
+    unsafe fn pop(&mut self, message: *mut winuser::MSG) -> ControlFlow {
+        unsafe fn abort_or_dispatch(message: *mut winuser::MSG) -> ControlFlow {
+            if (*message).message == winuser::WM_QUIT {
+                ControlFlow::Abort((*message).to_exit_code())
             }
             else {
-                PollResult::Dispatch(message)
+                ControlFlow::Dispatch(message)
             }
-        };
+        }
+
         if let Some(event) = self.queue.pop_back() {
             self.react(event);
-            PollResult::Repoll
+            ControlFlow::Continue
         }
         else {
             match self.reaction {
@@ -86,17 +116,16 @@ where
                         self.react(Event::Application {
                             event: ApplicationEvent::QueueExhausted,
                         });
-                        PollResult::Repoll
+                        ControlFlow::Continue
                     }
                     else {
-                        // Detect `WM_QUIT` just as `GetMessageW` does.
-                        parse((*message).message == winuser::WM_QUIT, message)
+                        abort_or_dispatch(message)
                     }
                 }
-                _ => parse(
-                    winuser::GetMessageW(message, ptr::null_mut(), 0, 0) == 0,
-                    message,
-                ),
+                Reaction::Abort | Reaction::Wait => {
+                    winuser::GetMessageW(message, ptr::null_mut(), 0, 0);
+                    abort_or_dispatch(message)
+                }
             }
         }
     }
@@ -154,7 +183,7 @@ impl platform::Abort<Binding> for Entry {
 pub unsafe fn react(event: Event<Binding>) -> Result<Reaction, ()> {
     EVENT_THREAD.with(move |thread| {
         if let Some(thread) = *thread.borrow_mut() {
-            let thread = mem::transmute::<*mut React, &mut React>(thread);
+            let thread = mem::transmute::<*mut dyn React, &mut dyn React>(thread);
             Ok(thread.react(event))
         }
         else {
@@ -169,7 +198,7 @@ where
 {
     EVENT_THREAD.with(move |thread| {
         if let Some(thread) = *thread.borrow_mut() {
-            let thread = mem::transmute::<*mut React, &mut React>(thread);
+            let thread = mem::transmute::<*mut dyn React, &mut dyn React>(thread);
             for event in events {
                 thread.enqueue(event);
             }

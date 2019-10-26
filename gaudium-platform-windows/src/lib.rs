@@ -15,8 +15,7 @@ mod mouse;
 mod reactor;
 mod window;
 
-use gaudium_core::platform;
-use gaudium_core::platform::Map;
+use gaudium_core::platform::{self, Map};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Binding {}
@@ -82,15 +81,15 @@ impl OpaqueBuffer {
     }
 }
 
-fn has_bitflag<T>(value: T, flag: T) -> bool
+fn has_bit_flags<T>(value: T, flags: T) -> bool
 where
     T: BitAnd<Output = T> + Integer + Num + One + Zero,
 {
-    if flag.is_zero() {
+    if flags.is_zero() {
         value & One::one() == Zero::zero()
     }
     else {
-        value & flag != Zero::zero()
+        value & flags != Zero::zero()
     }
 }
 
@@ -107,7 +106,7 @@ mod tests {
     fn test() {
         use gaudium_core::platform::alias::*;
         use gaudium_core::prelude::*;
-        use gaudium_core::reactor::{/* EventThread, */ FromContext, Reactor, ThreadContext};
+        use gaudium_core::reactor::{FromContext, Reactor, ThreadContext};
         use gaudium_core::window::{Window, WindowBuilder};
         use std::sync::mpsc::{self, Sender};
         use std::thread::{self, JoinHandle};
@@ -160,6 +159,7 @@ mod tests {
             }
         }
 
+        //use gaudium_core::reactor::EventThread;
         //EventThread::<Binding, TestReactor>::run_and_abort()
     }
 }

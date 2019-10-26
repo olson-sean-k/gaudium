@@ -40,7 +40,7 @@ fn parse_movement(input: &winuser::RAWMOUSE, modifier: ModifierState) -> Result<
             },
             // The `MOUSE_MOVE_RELATIVE` flag is typically set. If not, then
             // absolute motion events will be queued for each Raw Input event.
-            relative: if crate::has_bitflag(input.usFlags, winuser::MOUSE_MOVE_RELATIVE) {
+            relative: if crate::has_bit_flags(input.usFlags, winuser::MOUSE_MOVE_RELATIVE) {
                 Some((input.lLastX.into(), input.lLastY.into()))
             }
             else {
@@ -72,7 +72,7 @@ fn parse_movement(input: &winuser::RAWMOUSE, modifier: ModifierState) -> Result<
 }
 
 fn parse_wheel(input: &winuser::RAWMOUSE, modifier: ModifierState) -> Result<InputEvent, ()> {
-    if crate::has_bitflag(input.usButtonFlags, winuser::RI_MOUSE_WHEEL) {
+    if crate::has_bit_flags(input.usButtonFlags, winuser::RI_MOUSE_WHEEL) {
         Ok(InputEvent::MouseWheelRotated {
             delta: MouseWheelDelta::Rotational(
                 0.0,
@@ -92,7 +92,7 @@ fn parse_buttons_into(
     events: &mut InputEventBuffer,
 ) -> Result<(), ()> {
     let mut push_if = |mask: minwindef::USHORT, button: MouseButton, state: ElementState| {
-        if crate::has_bitflag(input.usButtonFlags, mask) {
+        if crate::has_bit_flags(input.usButtonFlags, mask) {
             events.push(InputEvent::MouseButtonChanged {
                 button,
                 state,
