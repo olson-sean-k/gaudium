@@ -51,13 +51,6 @@ where
             _ => None,
         }
     }
-
-    pub fn into_remote_event(self) -> Option<Self> {
-        match self {
-            Event::Application { .. } | Event::Input { .. } => Some(self),
-            _ => None,
-        }
-    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]

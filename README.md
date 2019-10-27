@@ -54,14 +54,7 @@ impl Reactor<Binding> for TestReactor {
                 event: WindowEvent::Closed(..),
                 ..
             } => Abort,
-            _ => {
-                if let Some(event) = event.into_remote_event() {
-                    self.tx.send(event).map(|_| Wait).into()
-                }
-                else {
-                    Wait
-                }
-            }
+            _ => self.tx.send(event).map(|_| Wait).into(),
         }
     }
 
