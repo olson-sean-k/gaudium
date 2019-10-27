@@ -4,12 +4,6 @@
 //! ecosystem. This crate selects a suitable platform implementation based on
 //! the build target and re-exports core types using bindings to that platform.
 //!
-//! **This crate requires nightly Rust** for the `type_alias_enum_variant`
-//! feature if not used together with the `gaudium-core` crate. For example,
-//! the variants of the `Event` alias cannot be used without this feature
-//! enabled. If nightly Rust is unacceptable, then the concerned types must be
-//! imported from `gaudium-core` when accessing variants.
-//!
 //! # Examples
 //!
 //! ```rust,no_run
