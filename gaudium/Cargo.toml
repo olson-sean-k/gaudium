@@ -23,5 +23,5 @@ gaudium-platform-empty = { path = "../gaudium-platform-empty" }
 #  features = []
 #  path = "../gaudium-platform-wayland"
 [target.'cfg(target_os = "windows")'.dependencies.gaudium-platform-windows]
-features = ["opengl"]
+default-features = false
 path = "../gaudium-platform-windows"
