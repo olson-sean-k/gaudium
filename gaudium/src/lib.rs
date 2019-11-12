@@ -20,7 +20,7 @@
 //!                 event: WindowEvent::Closed(..),
 //!                 ..
 //!             } => Abort,
-//!             _ => Wait,
+//!             _ => Continue(()),
 //!         },
 //!     )))
 //! })
@@ -63,7 +63,7 @@
 //!                 event: WindowEvent::Closed(..),
 //!                 ..
 //!             } => Abort,
-//!             _ => self.tx.send(event).map(|_| Wait).into(),
+//!             _ => self.tx.send(event).map(|_| Continue(())).into(),
 //!         }
 //!     }
 //!
@@ -135,17 +135,19 @@ pub mod platform {
 
 pub mod prelude {
     pub use crate::event::*;
+    pub use crate::reactor::Poll;
     pub use crate::reactor::Reaction;
 
+    pub use Poll::Ready;
+    pub use Poll::Wait;
     pub use Reaction::Abort;
-    pub use Reaction::Ready;
-    pub use Reaction::Wait;
+    pub use Reaction::Continue;
 }
 
 pub mod reactor {
     use crate::platform::Binding;
 
-    pub use gaudium_core::reactor::{FromContext, Reaction, Reactor, ThreadContext};
+    pub use gaudium_core::reactor::{FromContext, Poll, Reaction, Reactor, ThreadContext};
 
     pub type EventThread<R> = gaudium_core::reactor::EventThread<Binding, R>;
     pub type StatefulReactor<T, F> = gaudium_core::reactor::StatefulReactor<Binding, T, F>;

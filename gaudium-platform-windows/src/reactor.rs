@@ -1,6 +1,6 @@
-use gaudium_core::event::{ApplicationEvent, Event};
+use gaudium_core::event::{ApplicationEvent, Event, Resumption};
 use gaudium_core::platform;
-use gaudium_core::reactor::{Reaction, Reactor, ThreadContext};
+use gaudium_core::reactor::{Poll, Reaction, Reactor, ThreadContext};
 use gaudium_core::window::WindowHandle;
 use std::cell::RefCell;
 use std::collections::VecDeque;
@@ -11,14 +11,16 @@ use winapi::um::{processthreadsapi, winuser};
 
 use crate::Binding;
 
+use ApplicationEvent::Flushed;
+use ApplicationEvent::Resumed;
+use Poll::Ready;
+use Poll::Wait;
+use Poll::WaitUntil;
+use Reaction::Abort;
+use Reaction::Continue;
+
 thread_local! {
     static EVENT_THREAD: RefCell<Option<*mut dyn React>> = RefCell::new(None);
-}
-
-enum ControlFlow {
-    Dispatch(*const winuser::MSG),
-    Continue,
-    Abort(minwindef::UINT),
 }
 
 trait React {
@@ -26,37 +28,13 @@ trait React {
     fn enqueue(&mut self, event: Event<Binding>);
 }
 
-trait MessageExt {
-    fn empty() -> Self;
-
-    fn to_exit_code(&self) -> minwindef::UINT;
-}
-
-impl MessageExt for winuser::MSG {
-    fn empty() -> Self {
-        winuser::MSG {
-            hwnd: ptr::null_mut(),
-            message: 0,
-            wParam: 0,
-            lParam: 0,
-            time: 0,
-            pt: windef::POINT { x: 0, y: 0 },
-        }
-    }
-
-    fn to_exit_code(&self) -> minwindef::UINT {
-        self.wParam as minwindef::UINT
-    }
-}
-
 pub struct EventThread<R>
 where
     R: Reactor<Binding>,
 {
     reactor: R,
-    reaction: Reaction,
+    reaction: Reaction<Poll>,
     context: ThreadContext,
-    thread: minwindef::DWORD,
     queue: VecDeque<Event<Binding>>,
 }
 
@@ -64,75 +42,73 @@ impl<R> EventThread<R>
 where
     R: Reactor<Binding>,
 {
-    unsafe fn run_and_abort(mut self) -> ! {
+    fn new(context: ThreadContext, reactor: R) -> Self {
+        EventThread {
+            reactor,
+            reaction: Default::default(),
+            context,
+            queue: VecDeque::with_capacity(16),
+        }
+    }
+
+    unsafe fn run(mut self) -> minwindef::UINT {
         EVENT_THREAD.with(|thread| {
             *thread.borrow_mut() = Some(mem::transmute::<&'_ mut dyn React, *mut dyn React>(
                 &mut self,
             ));
         });
-        let mut message = MessageExt::empty();
-        loop {
-            match self.pop(&mut message) {
-                ControlFlow::Dispatch(message) => {
-                    winuser::TranslateMessage(message);
-                    winuser::DispatchMessageW(message);
+        let mut message = &mut mem::zeroed();
+        'react: loop {
+            while winuser::PeekMessageW(message, ptr::null_mut(), 0, 0, winuser::PM_REMOVE) != 0 {
+                if (*message).message == winuser::WM_QUIT {
+                    break 'react;
                 }
-                ControlFlow::Abort(code) => {
-                    self.abort(); // Drop the reactor and all state.
-                    EVENT_THREAD.with(|thread| {
-                        *thread.borrow_mut() = None;
-                    });
-                    crate::exit_process(code)
+                dispatch(message); // May call `react`.
+            }
+            self.react(Event::Application { event: Flushed });
+            while let Some(event) = self.queue.pop_front() {
+                self.react(event);
+            }
+            self.poll();
+            match self.reaction {
+                Continue(Wait) | Continue(WaitUntil(_)) => {
+                    if winuser::GetMessageW(message, ptr::null_mut(), 0, 0) == 0 {
+                        break 'react;
+                    }
+                    dispatch(message); // May call `react`.
                 }
-                _ => {}
+                Continue(Ready) => {}
+                Abort => break 'react,
             }
+            self.react(Event::Application {
+                event: Resumed(Resumption::Poll),
+            });
         }
-    }
-
-    unsafe fn run_and_join(self) {
-        unimplemented!()
-    }
-
-    unsafe fn pop(&mut self, message: *mut winuser::MSG) -> ControlFlow {
-        unsafe fn abort_or_dispatch(message: *mut winuser::MSG) -> ControlFlow {
-            if (*message).message == winuser::WM_QUIT {
-                ControlFlow::Abort((*message).to_exit_code())
-            }
-            else {
-                ControlFlow::Dispatch(message)
-            }
-        }
-
-        if let Some(event) = self.queue.pop_back() {
-            self.react(event);
-            ControlFlow::Continue
+        EVENT_THREAD.with(|thread| {
+            *thread.borrow_mut() = None;
+        });
+        self.abort(); // Drop the reactor and all state.
+        if (*message).message == winuser::WM_QUIT {
+            (*message).wParam as minwindef::UINT
         }
         else {
-            match self.reaction {
-                Reaction::Ready => {
-                    if winuser::PeekMessageW(message, ptr::null_mut(), 0, 0, winuser::PM_REMOVE)
-                        == 0
-                    {
-                        self.react(Event::Application {
-                            event: ApplicationEvent::QueueExhausted,
-                        });
-                        ControlFlow::Continue
-                    }
-                    else {
-                        abort_or_dispatch(message)
-                    }
-                }
-                Reaction::Abort | Reaction::Wait => {
-                    winuser::GetMessageW(message, ptr::null_mut(), 0, 0);
-                    abort_or_dispatch(message)
-                }
-            }
+            0
         }
     }
 
     fn abort(self) {
         let EventThread { reactor, .. } = self;
         reactor.abort();
+    }
+
+    fn poll(&mut self) -> Reaction<Poll> {
+        // Only overwrite the reaction if it is not in the `Abort` state.
+        let reaction = self.reactor.poll(&self.context);
+        match self.reaction {
+            Continue(_) => self.reaction = reaction,
+            _ => {}
+        }
+        reaction
     }
 }
 
@@ -141,18 +117,17 @@ where
     R: Reactor<Binding>,
 {
     fn react(&mut self, event: Event<Binding>) -> Reaction {
-        self.reaction = self.reactor.react(&self.context, event);
-        match self.reaction {
-            Reaction::Abort => unsafe {
-                winuser::PostQuitMessage(0);
-            },
+        // Only overwrite the reaction if an `Abort` was emitted.
+        let reaction = self.reactor.react(&self.context, event);
+        match reaction {
+            Abort => self.reaction = Abort,
             _ => {}
         }
-        self.reaction
+        reaction
     }
 
     fn enqueue(&mut self, event: Event<Binding>) {
-        self.queue.push_front(event);
+        self.queue.push_back(event);
     }
 }
 
@@ -168,14 +143,19 @@ impl platform::Abort<Binding> for Entry {
         R: Reactor<Binding>,
     {
         unsafe {
-            winuser::IsGUIThread(minwindef::TRUE);
-            EventThread::<R>::run_and_abort(EventThread {
-                reactor,
-                reaction: Default::default(),
-                context,
-                thread: processthreadsapi::GetCurrentThreadId(),
-                queue: VecDeque::with_capacity(16),
-            })
+            let code = EventThread::new(context, reactor).run();
+            crate::exit_process(code)
+        }
+    }
+}
+
+impl platform::Join<Binding> for Entry {
+    fn run_and_join<R>(context: ThreadContext, _: Self::Sink, reactor: R)
+    where
+        R: Reactor<Binding>,
+    {
+        unsafe {
+            EventThread::new(context, reactor).run();
         }
     }
 }
@@ -183,8 +163,7 @@ impl platform::Abort<Binding> for Entry {
 pub unsafe fn react(event: Event<Binding>) -> Result<Reaction, ()> {
     EVENT_THREAD.with(move |thread| {
         if let Some(thread) = *thread.borrow_mut() {
-            let thread = mem::transmute::<*mut dyn React, &mut dyn React>(thread);
-            Ok(thread.react(event))
+            Ok((*thread).react(event))
         }
         else {
             Err(())
@@ -198,9 +177,8 @@ where
 {
     EVENT_THREAD.with(move |thread| {
         if let Some(thread) = *thread.borrow_mut() {
-            let thread = mem::transmute::<*mut dyn React, &mut dyn React>(thread);
             for event in events {
-                thread.enqueue(event);
+                (*thread).enqueue(event);
             }
             Ok(())
         }
@@ -208,4 +186,9 @@ where
             Err(())
         }
     })
+}
+
+unsafe fn dispatch(message: *mut winuser::MSG) {
+    winuser::TranslateMessage(message);
+    winuser::DispatchMessageW(message); // May call `reactor::react`.
 }

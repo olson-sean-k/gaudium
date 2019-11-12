@@ -21,7 +21,7 @@
 //!                 event: WindowEvent::Closed(..),
 //!                 ..
 //!             } => Abort,
-//!             _ => Wait,
+//!             _ => Continue(()),
 //!         },
 //!     )))
 //! })
@@ -71,7 +71,7 @@
 //!                 event: WindowEvent::Closed(..),
 //!                 ..
 //!             } => Abort,
-//!             _ => self.tx.send(event).map(|_| Wait).into(),
+//!             _ => self.tx.send(event).map(|_| Continue(())).into(),
 //!         }
 //!     }
 //!
@@ -98,10 +98,12 @@ pub mod window;
 
 pub mod prelude {
     pub use crate::event::*;
+    pub use crate::reactor::Poll;
+    pub use crate::reactor::Poll::Ready;
+    pub use crate::reactor::Poll::Wait;
     pub use crate::reactor::Reaction;
     pub use crate::reactor::Reaction::Abort;
-    pub use crate::reactor::Reaction::Ready;
-    pub use crate::reactor::Reaction::Wait;
+    pub use crate::reactor::Reaction::Continue;
 }
 
 pub trait FromRawHandle<T> {
@@ -162,7 +164,7 @@ mod tests {
                         event: WindowEvent::Closed(..),
                         ..
                     } => Abort,
-                    _ => self.tx.send(event).map(|_| Wait).into(),
+                    _ => self.tx.send(event).map(|_| Continue(())).into(),
                 }
             }
 

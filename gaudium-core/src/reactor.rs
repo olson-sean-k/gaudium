@@ -1,4 +1,5 @@
 use std::marker::PhantomData;
+use std::time::Instant;
 
 use crate::event::Event;
 use crate::platform::alias::*;
@@ -20,18 +21,23 @@ pub struct ThreadContext {
 /// `PhantomData` that prevents auto-implementation of `Send` and `Sync`.
 pub type ThreadStatic = PhantomData<*mut isize>;
 
-/// Reaction to an event.
-///
-/// Each time a `Reactor` reacts to an event, it must yield `Reaction` to
-/// specify the poll mode used by the event thread or to terminate. The poll
-/// mode determines how the next event is polled and dispatched.
 #[derive(Clone, Copy, Eq, PartialEq)]
-pub enum Reaction {
-    /// Dispatch pending events. If there are no pending events, then
-    /// `ApplicationEvent::QueueExhausted` is dispatched.
+pub enum Poll {
     Ready,
-    /// Block the event thread until an event arrives and can be dispatched.
     Wait,
+    WaitUntil(Instant),
+}
+
+impl Default for Poll {
+    fn default() -> Self {
+        Poll::Ready
+    }
+}
+
+/// Reaction to an event.
+#[derive(Clone, Copy, Eq, PartialEq)]
+pub enum Reaction<T = ()> {
+    Continue(T),
     /// Stop the event thread and end the process.
     ///
     /// If a reactor aborts, it may still receive additional events before the
@@ -39,14 +45,35 @@ pub enum Reaction {
     Abort,
 }
 
-impl Default for Reaction {
-    fn default() -> Self {
-        Reaction::Wait
+impl<T> Reaction<T> {
+    pub fn map<U, F>(self, mut f: F) -> Reaction<U>
+    where
+        F: FnMut(T) -> U,
+    {
+        match self {
+            Reaction::Continue(value) => Reaction::Continue(f(value)),
+            _ => Reaction::Abort,
+        }
     }
 }
 
-impl From<Option<Reaction>> for Reaction {
-    fn from(option: Option<Reaction>) -> Self {
+impl<T> Default for Reaction<T>
+where
+    T: Default,
+{
+    fn default() -> Self {
+        Reaction::Continue(Default::default())
+    }
+}
+
+impl From<Poll> for Reaction<Poll> {
+    fn from(poll: Poll) -> Self {
+        Reaction::Continue(poll)
+    }
+}
+
+impl<T> From<Option<Reaction<T>>> for Reaction<T> {
+    fn from(option: Option<Reaction<T>>) -> Self {
         match option {
             Some(reaction) => reaction,
             None => Reaction::Abort,
@@ -54,8 +81,8 @@ impl From<Option<Reaction>> for Reaction {
     }
 }
 
-impl<E> From<Result<Reaction, E>> for Reaction {
-    fn from(result: Result<Reaction, E>) -> Self {
+impl<T, E> From<Result<Reaction<T>, E>> for Reaction<T> {
+    fn from(result: Result<Reaction<T>, E>) -> Self {
         match result {
             Ok(reaction) => reaction,
             Err(_) => Reaction::Abort,
@@ -77,6 +104,10 @@ where
     /// responds.  To terminate the event thread, `Reaction::Abort` should be
     /// returned.
     fn react(&mut self, context: &ThreadContext, event: Event<P>) -> Reaction;
+
+    fn poll(&mut self, context: &ThreadContext) -> Reaction<Poll> {
+        Default::default()
+    }
 
     /// Stops the reactor.
     ///
@@ -146,6 +177,10 @@ where
 {
     fn react(&mut self, context: &ThreadContext, event: Event<P>) -> Reaction {
         (self.f)(&mut self.state, context, event)
+    }
+
+    fn poll(&mut self, context: &ThreadContext) -> Reaction<Poll> {
+        Poll::Wait.into()
     }
 }
 

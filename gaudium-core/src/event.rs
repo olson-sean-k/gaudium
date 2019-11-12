@@ -1,3 +1,5 @@
+use std::time::Instant;
+
 use crate::device::{DeviceHandle, Usage};
 use crate::display::{LogicalUnit, PhysicalUnit};
 use crate::platform::PlatformBinding;
@@ -55,8 +57,15 @@ where
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum ApplicationEvent {
-    QueueExhausted, // `Reaction::Ready`.
-    TimeoutExpired, // `Reaction::Timeout`.
+    Resumed(Resumption),
+    Flushed,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum Resumption {
+    Poll,
+    Timeout(Instant),
+    Interrupt(Instant),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]

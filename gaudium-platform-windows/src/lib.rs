@@ -141,7 +141,8 @@ mod tests {
                         event: WindowEvent::Closed(..),
                         ..
                     } => Abort,
-                    _ => self.tx.send(event).map(|_| Wait).into(),
+                    Event::Application { .. } => Continue(()),
+                    _ => self.tx.send(event).map(|_| Continue(())).into(),
                 }
             }
 
