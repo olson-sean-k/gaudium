@@ -27,7 +27,6 @@ impl WindowBuilderExt for WindowBuilder<Binding> {
 }
 
 mod empty {
-    use arrayvec::ArrayVec;
     use gaudium_core::platform;
     use gaudium_core::reactor::Reactor;
     use gaudium_core::reactor::ThreadContext;
