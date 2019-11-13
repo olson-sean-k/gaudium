@@ -4,7 +4,7 @@ use std::ops::Deref;
 use crate::event::{ElementState, Event, InputEvent, KeyCode};
 use crate::framework::input::state::{AsRawState, Element, Snapshot, SnapshotState};
 use crate::framework::React;
-use crate::platform::Platform;
+use crate::platform::PlatformBinding;
 
 impl Element for KeyCode {
     type State = ElementState;
@@ -41,7 +41,7 @@ impl Deref for KeyboardSnapshot {
 
 impl<P> Snapshot<P> for KeyboardSnapshot
 where
-    P: Platform,
+    P: PlatformBinding,
 {
     fn snapshot(&mut self) {
         self.old = self.new.clone();
@@ -62,7 +62,7 @@ impl SnapshotState for KeyboardSnapshot {
 
 impl<P> React<P> for KeyboardSnapshot
 where
-    P: Platform,
+    P: PlatformBinding,
 {
     fn react(&mut self, event: &Event<P>) {
         if let Event::Input {

@@ -7,7 +7,7 @@ use crate::framework::input::state::{
     SnapshotTransition, State,
 };
 use crate::framework::React;
-use crate::platform::Platform;
+use crate::platform::PlatformBinding;
 
 impl Element for MouseButton {
     type State = ElementState;
@@ -61,14 +61,17 @@ impl Deref for MouseSnapshot {
 
 impl<P> Snapshot<P> for MouseSnapshot
 where
-    P: Platform,
+    P: PlatformBinding,
 {
     fn snapshot(&mut self) {
         self.old = self.new.clone();
     }
 }
 
-impl SnapshotDifference<MousePosition> for MouseSnapshot {
+impl<P> SnapshotDifference<P, MousePosition> for MouseSnapshot
+where
+    P: PlatformBinding,
+{
     type Difference = Option<(
         MousePosition,
         <<MousePosition as Element>::State as State>::Difference,
@@ -89,14 +92,17 @@ impl SnapshotDifference<MousePosition> for MouseSnapshot {
     }
 }
 
-impl SnapshotDifference<MouseProximity> for MouseSnapshot {
+impl<P> SnapshotDifference<P, MouseProximity> for MouseSnapshot
+where
+    P: PlatformBinding,
+{
     type Difference = Option<(
         MouseProximity,
         <<MouseProximity as Element>::State as State>::Difference,
     )>;
 
     fn difference(&self) -> Self::Difference {
-        self.transition(MouseProximity)
+        <Self as SnapshotTransition<P, _>>::transition(self, MouseProximity)
             .map(|state| (MouseProximity, state))
     }
 }
@@ -115,7 +121,7 @@ impl SnapshotState for MouseSnapshot {
 
 impl<P> React<P> for MouseSnapshot
 where
-    P: Platform,
+    P: PlatformBinding,
 {
     fn react(&mut self, event: &Event<P>) {
         match *event {

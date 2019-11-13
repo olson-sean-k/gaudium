@@ -4,7 +4,7 @@ use std::ops::Deref;
 
 use crate::event::ElementState;
 use crate::framework::React;
-use crate::platform::Platform;
+use crate::platform::PlatformBinding;
 
 /// An atomic state of an input element.
 pub trait State: Copy + Eq {
@@ -82,17 +82,18 @@ where
 }
 
 /// Provides a transition state for an input element.
-pub trait SnapshotTransition<E>
+pub trait SnapshotTransition<P, E>
 where
+    P: PlatformBinding,
     E: Element,
 {
     /// Gets the transition state of an input element.
     fn transition(&self, element: E) -> Option<E::State>;
 }
 
-impl<P, E, T> SnapshotTransition<E> for T
+impl<P, E, T> SnapshotTransition<P, E> for T
 where
-    P: Platform,
+    P: PlatformBinding,
     T: Snapshot<P>,
     T::State: CompositeState<E>,
     E: Element,
@@ -106,8 +107,9 @@ where
 }
 
 /// Determines the difference in state for an input element.
-pub trait SnapshotDifference<E>
+pub trait SnapshotDifference<P, E>
 where
+    P: PlatformBinding,
     E: Element,
 {
     /// Iterable representation of differences in state.
@@ -119,9 +121,9 @@ where
 
 // Blanket implementation for `SnapshotDifference` for composite states
 // represented by a `HashSet`, such as keys and buttons.
-impl<P, E, S, T> SnapshotDifference<E> for T
+impl<P, E, S, T> SnapshotDifference<P, E> for T
 where
-    P: Platform,
+    P: PlatformBinding,
     T: Snapshot<P>,
     T::State: AsRawState<E, Target = HashSet<E>> + CompositeState<E>,
     E: Element<State = S> + Eq + Hash,
@@ -155,7 +157,7 @@ pub trait SnapshotState {
 pub trait Snapshot<P>:
     Deref<Target = <Self as SnapshotState>::State> + React<P> + SnapshotState
 where
-    P: Platform,
+    P: PlatformBinding,
 {
     /// Snapshots the new (live) state.
     fn snapshot(&mut self);
