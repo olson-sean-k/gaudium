@@ -2,7 +2,7 @@
 
 **Gaudium** is a Rust library for cross-platform display and input abstraction.
 
-[![Build Status](https://travis-ci.org/olson-sean-k/gaudium.svg?branch=master)](https://travis-ci.org/olson-sean-k/gaudium)
+[![CI](https://travis-ci.org/olson-sean-k/gaudium.svg?branch=master)](https://travis-ci.org/olson-sean-k/gaudium)
 [![Documentation](https://docs.rs/gaudium/badge.svg)](https://doc.rs/gaudium)
 [![Crate](https://img.shields.io/crates/v/gaudium.svg)](https://crates.io/crates/gaudium)
 
@@ -15,7 +15,7 @@ executed on the event thread and typically runs within platform code (within an
 OS or process event loop, etc.).
 
 Reactors can immediately handle events within the event thread or further
-dispatch events to other threads as needed.
+dispatch events as needed.
 
 ```rust
 use gaudium::platform::{Binding, WindowBuilderExt};
@@ -54,7 +54,8 @@ impl Reactor<Binding> for TestReactor {
                 event: WindowEvent::Closed(..),
                 ..
             } => Abort,
-            _ => self.tx.send(event).map(|_| Wait).into(),
+            Event::Application { .. } => Continue(()),
+            _ => self.tx.send(event).map(|_| Continue(())).into(),
         }
     }
 

@@ -63,6 +63,7 @@
 //!                 event: WindowEvent::Closed(..),
 //!                 ..
 //!             } => Abort,
+//!             Event::Application { .. } => Continue(()),
 //!             _ => self.tx.send(event).map(|_| Continue(())).into(),
 //!         }
 //!     }
