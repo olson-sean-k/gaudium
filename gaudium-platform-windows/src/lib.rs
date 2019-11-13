@@ -197,7 +197,7 @@ mod tests {
             }
         }
 
-        use gaudium_core::reactor::EventThread;
-        EventThread::<Binding, TestReactor>::run_and_abort()
+        //use gaudium_core::reactor::EventThread;
+        //EventThread::<Binding, TestReactor>::run_and_abort()
     }
 }
