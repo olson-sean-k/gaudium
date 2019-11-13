@@ -16,6 +16,7 @@ mod reactor;
 mod window;
 
 use gaudium_core::platform::{self, Proxy};
+use gaudium_core::window::WindowBuilder;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Binding {}
@@ -23,8 +24,8 @@ pub enum Binding {}
 impl platform::PlatformBinding for Binding {
     type EventThread = reactor::Entry;
     type WindowBuilder = window::WindowBuilder;
-
-    type DeviceHandle = ntdef::HANDLE;
+    type Device = empty::Device;
+    type Display = empty::Display;
 }
 
 pub trait WindowBuilderExt: Sized {
@@ -33,7 +34,7 @@ pub trait WindowBuilderExt: Sized {
         T: AsRef<str>;
 }
 
-impl WindowBuilderExt for gaudium_core::window::WindowBuilder<Binding> {
+impl WindowBuilderExt for WindowBuilder<Binding> {
     fn with_title<T>(self, title: T) -> Self
     where
         T: AsRef<str>,
@@ -100,14 +101,57 @@ fn exit_process(code: minwindef::UINT) -> ! {
     loop {}
 }
 
+// TODO: Implement these types.
+mod empty {
+    use gaudium_core::platform;
+    use winapi::shared::ntdef;
+
+    #[derive(Eq, Hash, PartialEq)]
+    pub struct Device(ntdef::HANDLE);
+
+    impl platform::Device for Device {
+        type Query = Option<Self>;
+
+        fn connected() -> Self::Query {
+            None
+        }
+    }
+
+    impl platform::Handle for Device {
+        type Handle = ntdef::HANDLE;
+
+        fn handle(&self) -> Self::Handle {
+            self.0
+        }
+    }
+
+    #[derive(Eq, Hash, PartialEq)]
+    pub struct Display(usize);
+
+    impl platform::Display for Display {
+        type Query = Option<Self>;
+
+        fn connected() -> Self::Query {
+            None
+        }
+    }
+
+    impl platform::Handle for Display {
+        type Handle = usize;
+
+        fn handle(&self) -> Self::Handle {
+            self.0
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     #[test]
     fn test() {
-        use gaudium_core::platform::alias::*;
         use gaudium_core::prelude::*;
         use gaudium_core::reactor::{FromContext, Reactor, ThreadContext};
-        use gaudium_core::window::{Window, WindowBuilder};
+        use gaudium_core::window::{Window, WindowBuilder, WindowHandle};
         use std::sync::mpsc::{self, Sender};
         use std::thread::{self, JoinHandle};
 
@@ -120,7 +164,7 @@ mod tests {
         }
 
         impl FromContext<Binding> for TestReactor {
-            fn from_context(context: &ThreadContext) -> (Sink<Binding>, Self) {
+            fn from_context(context: &ThreadContext) -> (WindowHandle<Binding>, Self) {
                 let window = WindowBuilder::<Binding>::default()
                     .build(context)
                     .expect("");
@@ -153,7 +197,7 @@ mod tests {
             }
         }
 
-        //use gaudium_core::reactor::EventThread;
-        //EventThread::<Binding, TestReactor>::run_and_abort()
+        use gaudium_core::reactor::EventThread;
+        EventThread::<Binding, TestReactor>::run_and_abort()
     }
 }

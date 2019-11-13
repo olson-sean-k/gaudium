@@ -1,26 +1,26 @@
-use crate::platform::PlatformBinding;
+use crate::platform::{self, PlatformBinding};
 use crate::{FromRawHandle, IntoRawHandle};
 
 /// An opaque type that identifies an input device.
 #[derive(Clone, Copy, Debug, Hash, PartialEq)]
-pub struct DeviceHandle<P>(P::DeviceHandle)
+pub struct DeviceHandle<P>(platform::DeviceHandle<P>)
 where
     P: PlatformBinding;
 
-impl<P> FromRawHandle<P::DeviceHandle> for DeviceHandle<P>
+impl<P> FromRawHandle<platform::DeviceHandle<P>> for DeviceHandle<P>
 where
     P: PlatformBinding,
 {
-    fn from_raw_handle(handle: P::DeviceHandle) -> Self {
+    fn from_raw_handle(handle: platform::DeviceHandle<P>) -> Self {
         DeviceHandle(handle)
     }
 }
 
-impl<P> IntoRawHandle<P::DeviceHandle> for DeviceHandle<P>
+impl<P> IntoRawHandle<platform::DeviceHandle<P>> for DeviceHandle<P>
 where
     P: PlatformBinding,
 {
-    fn into_raw_handle(self) -> P::DeviceHandle {
+    fn into_raw_handle(self) -> platform::DeviceHandle<P> {
         self.0
     }
 }

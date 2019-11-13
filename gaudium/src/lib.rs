@@ -126,12 +126,6 @@ pub mod platform {
     pub use gaudium_platform_empty::{Binding, WindowBuilderExt};
     #[cfg(target_os = "windows")]
     pub use gaudium_platform_windows::{Binding, WindowBuilderExt};
-
-    pub mod alias {
-        use crate::platform::Binding;
-
-        pub type Sink = gaudium_core::platform::alias::Sink<Binding>;
-    }
 }
 
 pub mod prelude {

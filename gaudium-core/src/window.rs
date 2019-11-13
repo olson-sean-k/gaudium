@@ -1,27 +1,27 @@
-use crate::platform::{alias, Handle, PlatformBinding, Proxy};
+use crate::platform::{self, Handle, PlatformBinding, Proxy};
 use crate::reactor::ThreadContext;
 use crate::{FromRawHandle, IntoRawHandle};
 
 /// An opaque type that identifies a `Window`.
 #[derive(Clone, Copy, Debug, Hash, PartialEq)]
-pub struct WindowHandle<P>(alias::WindowHandle<P>)
+pub struct WindowHandle<P>(platform::WindowHandle<P>)
 where
     P: PlatformBinding;
 
-impl<P> FromRawHandle<alias::WindowHandle<P>> for WindowHandle<P>
+impl<P> FromRawHandle<platform::WindowHandle<P>> for WindowHandle<P>
 where
     P: PlatformBinding,
 {
-    fn from_raw_handle(handle: alias::WindowHandle<P>) -> Self {
+    fn from_raw_handle(handle: platform::WindowHandle<P>) -> Self {
         WindowHandle(handle)
     }
 }
 
-impl<P> IntoRawHandle<alias::WindowHandle<P>> for WindowHandle<P>
+impl<P> IntoRawHandle<platform::WindowHandle<P>> for WindowHandle<P>
 where
     P: PlatformBinding,
 {
-    fn into_raw_handle(self) -> alias::WindowHandle<P> {
+    fn into_raw_handle(self) -> platform::WindowHandle<P> {
         self.0
     }
 }
@@ -111,7 +111,7 @@ pub struct Window<P>
 where
     P: PlatformBinding,
 {
-    inner: alias::Window<P>,
+    inner: platform::Window<P>,
 }
 
 impl<P> Window<P>
@@ -130,10 +130,5 @@ where
     /// Gets the handle of the window.
     pub fn handle(&self) -> WindowHandle<P> {
         WindowHandle(self.inner.handle())
-    }
-
-    /// Gets the raw handle of the window used by the platform.
-    pub fn raw_handle(&self) -> alias::WindowHandle<P> {
-        self.inner.handle()
     }
 }

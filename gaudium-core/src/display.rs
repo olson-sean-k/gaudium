@@ -1,5 +1,6 @@
 use std::ops::Deref;
 
+// TODO: Use a platform binding to wrap a native handle.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct DisplayHandle(u64);
 

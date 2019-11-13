@@ -2,8 +2,8 @@ use std::marker::PhantomData;
 use std::time::Instant;
 
 use crate::event::Event;
-use crate::platform::alias::*;
 use crate::platform::{Abort, Join, PlatformBinding};
+use crate::window::WindowHandle;
 
 /// Event thread context.
 ///
@@ -134,7 +134,7 @@ pub trait FromContext<P>: Sized
 where
     P: PlatformBinding,
 {
-    fn from_context(context: &ThreadContext) -> (Sink<P>, Self);
+    fn from_context(context: &ThreadContext) -> (WindowHandle<P>, Self);
 }
 
 pub trait IntoReactor<P, R>
@@ -142,7 +142,7 @@ where
     P: PlatformBinding,
     R: Reactor<P>,
 {
-    fn into_reactor(self) -> (Sink<P>, R);
+    fn into_reactor(self) -> (WindowHandle<P>, R);
 }
 
 impl<'a, P, R> IntoReactor<P, R> for &'a ThreadContext
@@ -150,7 +150,7 @@ where
     P: PlatformBinding,
     R: FromContext<P> + Reactor<P>,
 {
-    fn into_reactor(self) -> (Sink<P>, R) {
+    fn into_reactor(self) -> (WindowHandle<P>, R) {
         R::from_context(self)
     }
 }
@@ -237,7 +237,7 @@ where
     /// reactor and thread-dependent state, such as `Window`s.
     pub fn run_and_abort_with<F>(f: F) -> !
     where
-        F: 'static + FnOnce(&ThreadContext) -> (Sink<P>, R),
+        F: 'static + FnOnce(&ThreadContext) -> (WindowHandle<P>, R),
     {
         let context = ThreadContext {
             phantom: PhantomData,
@@ -256,7 +256,7 @@ where
 
     pub fn run_and_join_with<F>(f: F)
     where
-        F: 'static + FnOnce(&ThreadContext) -> (Sink<P>, R),
+        F: 'static + FnOnce(&ThreadContext) -> (WindowHandle<P>, R),
         P::EventThread: Join<P>,
     {
         let context = ThreadContext {

@@ -1,14 +1,14 @@
-use gaudium_core::platform::{self, Proxy};
-use gaudium_core::window;
+use gaudium_core::platform::{PlatformBinding, Proxy};
+use gaudium_core::window::WindowBuilder;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Binding {}
 
-impl platform::PlatformBinding for Binding {
+impl PlatformBinding for Binding {
     type EventThread = empty::EventThread;
     type WindowBuilder = empty::WindowBuilder;
-
-    type DeviceHandle = u64;
+    type Device = empty::Device;
+    type Display = empty::Display;
 }
 
 pub trait WindowBuilderExt: Sized {
@@ -17,7 +17,7 @@ pub trait WindowBuilderExt: Sized {
         T: AsRef<str>;
 }
 
-impl WindowBuilderExt for window::WindowBuilder<Binding> {
+impl WindowBuilderExt for WindowBuilder<Binding> {
     fn with_title<T>(self, title: T) -> Self
     where
         T: AsRef<str>,
@@ -38,12 +38,8 @@ mod empty {
 
     pub struct EventThread;
 
-    impl platform::EventThread<Binding> for EventThread {
-        type Sink = WindowHandle<Binding>;
-    }
-
     impl platform::Abort<Binding> for EventThread {
-        fn run_and_abort<R>(_: ThreadContext, _: Self::Sink, reactor: R) -> !
+        fn run_and_abort<R>(_: ThreadContext, _: WindowHandle<Binding>, reactor: R) -> !
         where
             R: Reactor<Binding>,
         {
@@ -52,20 +48,38 @@ mod empty {
         }
     }
 
-    // TODO: Expose this type when display queries are implemented.
-    #[derive(Eq, Hash, PartialEq)]
-    pub struct Display(u64);
+    #[derive(Debug, Eq, Hash, PartialEq)]
+    pub struct Device(usize);
+
+    impl platform::Device for Device {
+        type Query = Option<Self>;
+
+        fn connected() -> Self::Query {
+            None
+        }
+    }
+
+    impl platform::Handle for Device {
+        type Handle = usize;
+
+        fn handle(&self) -> Self::Handle {
+            self.0
+        }
+    }
+
+    #[derive(Debug, Eq, Hash, PartialEq)]
+    pub struct Display(usize);
 
     impl platform::Display for Display {
-        type Query = ArrayVec<[Display; 1]>;
+        type Query = Option<Self>;
 
-        fn displays() -> Self::Query {
-            ArrayVec::from([Display(0)])
+        fn connected() -> Self::Query {
+            None
         }
     }
 
     impl platform::Handle for Display {
-        type Handle = u64;
+        type Handle = usize;
 
         fn handle(&self) -> Self::Handle {
             self.0

@@ -6,8 +6,8 @@ use std::cell::RefCell;
 use std::collections::VecDeque;
 use std::mem;
 use std::ptr;
-use winapi::shared::{minwindef, windef};
-use winapi::um::{processthreadsapi, winuser};
+use winapi::shared::minwindef;
+use winapi::um::winuser;
 
 use crate::Binding;
 
@@ -133,12 +133,8 @@ where
 
 pub struct Entry;
 
-impl platform::EventThread<Binding> for Entry {
-    type Sink = WindowHandle<Binding>;
-}
-
 impl platform::Abort<Binding> for Entry {
-    fn run_and_abort<R>(context: ThreadContext, _: Self::Sink, reactor: R) -> !
+    fn run_and_abort<R>(context: ThreadContext, _: WindowHandle<Binding>, reactor: R) -> !
     where
         R: Reactor<Binding>,
     {
@@ -150,7 +146,7 @@ impl platform::Abort<Binding> for Entry {
 }
 
 impl platform::Join<Binding> for Entry {
-    fn run_and_join<R>(context: ThreadContext, _: Self::Sink, reactor: R)
+    fn run_and_join<R>(context: ThreadContext, _: WindowHandle<Binding>, reactor: R)
     where
         R: Reactor<Binding>,
     {

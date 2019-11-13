@@ -35,10 +35,9 @@
 //! use std::sync::mpsc::{self, Sender};
 //! use std::thread::{self, JoinHandle};
 //!
-//! use gaudium_core::platform::alias::Sink;
 //! use gaudium_core::prelude::*;
 //! use gaudium_core::reactor::{EventThread, FromContext, Reactor, ThreadContext};
-//! use gaudium_core::window::{Window, WindowBuilder};
+//! use gaudium_core::window::{Window, WindowBuilder, WindowHandle};
 //! use gaudium_platform_empty::{Binding, WindowBuilderExt};
 //!
 //! # fn main() {
@@ -49,7 +48,7 @@
 //! }
 //!
 //! impl FromContext<Binding> for TestReactor {
-//!     fn from_context(context: &ThreadContext) -> (Sink<Binding>, Self) {
+//!     fn from_context(context: &ThreadContext) -> (WindowHandle<Binding>, Self) {
 //!         let window = WindowBuilder::<Binding>::default()
 //!             .with_title("Gaudium")
 //!             .build(context)
@@ -119,11 +118,10 @@ mod tests {
     use std::sync::mpsc::{self, Sender};
     use std::thread::{self, JoinHandle};
 
-    use crate::platform::alias::*;
     use crate::platform::PlatformBinding;
     use crate::prelude::*;
     use crate::reactor::{FromContext, Reactor, ThreadContext};
-    use crate::window::{Window, WindowBuilder};
+    use crate::window::{Window, WindowBuilder, WindowHandle};
 
     // For sanity.
     #[test]
@@ -142,7 +140,7 @@ mod tests {
         where
             P: PlatformBinding,
         {
-            fn from_context(context: &ThreadContext) -> (Sink<P>, Self) {
+            fn from_context(context: &ThreadContext) -> (WindowHandle<P>, Self) {
                 let window = WindowBuilder::<P>::default().build(context).expect("");
                 let (tx, rx) = mpsc::channel();
                 let handle = thread::spawn(move || {
