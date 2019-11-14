@@ -232,14 +232,11 @@ pub enum Reaction<T = ()> {
 }
 
 impl<T> Reaction<T> {
-    pub fn map<U, F>(self, mut f: F) -> Reaction<U>
+    pub fn map<U, F>(self, f: F) -> Reaction<U>
     where
         F: FnMut(T) -> U,
     {
-        match self {
-            Reaction::Continue(value) => Reaction::Continue(f(value)),
-            _ => Reaction::Abort,
-        }
+        Into::<Option<_>>::into(self).map(f).into()
     }
 }
 
@@ -258,20 +255,29 @@ impl From<Poll> for Reaction<Poll> {
     }
 }
 
-impl<T> From<Option<Reaction<T>>> for Reaction<T> {
-    fn from(option: Option<Reaction<T>>) -> Self {
+impl<T> From<Option<T>> for Reaction<T> {
+    fn from(option: Option<T>) -> Self {
         match option {
-            Some(reaction) => reaction,
+            Some(value) => Reaction::Continue(value),
             None => Reaction::Abort,
         }
     }
 }
 
-impl<T, E> From<Result<Reaction<T>, E>> for Reaction<T> {
-    fn from(result: Result<Reaction<T>, E>) -> Self {
+impl<T, E> From<Result<T, E>> for Reaction<T> {
+    fn from(result: Result<T, E>) -> Self {
         match result {
-            Ok(reaction) => reaction,
+            Ok(value) => Reaction::Continue(value),
             Err(_) => Reaction::Abort,
+        }
+    }
+}
+
+impl<T> Into<Option<T>> for Reaction<T> {
+    fn into(self) -> Option<T> {
+        match self {
+            Reaction::Continue(value) => Some(value),
+            Reaction::Abort => None,
         }
     }
 }
@@ -379,7 +385,7 @@ where
         (self.f)(&mut self.state, context, event)
     }
 
-    fn poll(&mut self, context: &ThreadContext) -> Reaction<Poll> {
+    fn poll(&mut self, _: &ThreadContext) -> Reaction<Poll> {
         Poll::Wait.into()
     }
 }

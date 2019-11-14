@@ -70,7 +70,7 @@
 //!                 event: WindowEvent::Closed(..),
 //!                 ..
 //!             } => Abort,
-//!             _ => self.tx.send(event).map(|_| Continue(())).into(),
+//!             _ => self.tx.send(event).map(|_| ()).into(),
 //!         }
 //!     }
 //!
@@ -164,7 +164,7 @@ mod tests {
                         ..
                     } => Abort,
                     Event::Application { .. } => Continue(()),
-                    _ => self.tx.send(event).map(|_| Continue(())).into(),
+                    _ => self.tx.send(event).map(|_| ()).into(),
                 }
             }
 

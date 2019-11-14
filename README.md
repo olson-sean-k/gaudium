@@ -55,7 +55,7 @@ impl Reactor<Binding> for TestReactor {
                 ..
             } => Abort,
             Event::Application { .. } => Continue(()),
-            _ => self.tx.send(event).map(|_| Continue(())).into(),
+            _ => self.tx.send(event).map(|_| ()).into(),
         }
     }
 
