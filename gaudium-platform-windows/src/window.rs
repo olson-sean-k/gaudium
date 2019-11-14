@@ -114,8 +114,8 @@ impl Window {
         let WindowBuilder {
             ref title,
             dimensions,
-            exclusive: _,
             mut parent,
+            ..
         } = builder;
         let (parent, style, extended_style) = if let Some(parent) = parent.take() {
             (

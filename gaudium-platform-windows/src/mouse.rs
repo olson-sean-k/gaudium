@@ -3,7 +3,7 @@ use gaudium_core::event::{
     ElementState, InputEvent, ModifierState, MouseButton, MouseMovement, MouseWheelDelta,
 };
 use smallvec::SmallVec;
-use std::mem;
+use std::mem::MaybeUninit;
 use winapi::shared::{minwindef, ntdef, windef};
 use winapi::um::winuser;
 
@@ -28,11 +28,12 @@ pub fn parse_raw_input(
 }
 
 fn parse_movement(input: &winuser::RAWMOUSE, modifier: ModifierState) -> Result<InputEvent, ()> {
-    let mut point = unsafe { mem::uninitialized() };
+    let mut point = MaybeUninit::<windef::POINT>::uninit();
     let event = InputEvent::MouseMoved {
         movement: MouseMovement {
-            absolute: if unsafe { winuser::GetCursorPos(&mut point) != 0 } {
+            absolute: if unsafe { winuser::GetCursorPos(point.as_mut_ptr()) != 0 } {
                 let dpi = 1.0; // TODO: Get the DPI factor.
+                let point = unsafe { point.assume_init() };
                 Some((point.x as i32, point.y as i32).into_logical(dpi))
             }
             else {

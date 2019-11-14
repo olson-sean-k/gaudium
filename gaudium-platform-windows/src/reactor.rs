@@ -51,13 +51,13 @@ where
         }
     }
 
+    #[allow(clippy::useless_transmute)]
     unsafe fn run(mut self) -> minwindef::UINT {
         EVENT_THREAD.with(|thread| {
-            *thread.borrow_mut() = Some(mem::transmute::<&'_ mut dyn React, *mut dyn React>(
-                &mut self,
-            ));
+            *thread.borrow_mut() =
+                Some(mem::transmute::<&mut dyn React, *mut dyn React>(&mut self));
         });
-        let mut message = &mut mem::zeroed();
+        let message = &mut mem::zeroed();
         'react: loop {
             while winuser::PeekMessageW(message, ptr::null_mut(), 0, 0, winuser::PM_REMOVE) != 0 {
                 if (*message).message == winuser::WM_QUIT {
@@ -104,9 +104,8 @@ where
     fn poll(&mut self) -> Reaction<Poll> {
         // Only overwrite the reaction if it is not in the `Abort` state.
         let reaction = self.reactor.poll(&self.context);
-        match self.reaction {
-            Continue(_) => self.reaction = reaction,
-            _ => {}
+        if let Continue(_) = self.reaction {
+            self.reaction = reaction;
         }
         reaction
     }
@@ -119,9 +118,8 @@ where
     fn react(&mut self, event: Event<Binding>) -> Reaction {
         // Only overwrite the reaction if an `Abort` was emitted.
         let reaction = self.reactor.react(&self.context, event);
-        match reaction {
-            Abort => self.reaction = Abort,
-            _ => {}
+        if let Abort = reaction {
+            self.reaction = Abort;
         }
         reaction
     }

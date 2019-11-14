@@ -6,6 +6,8 @@ use std::mem;
 use std::ops::BitAnd;
 use std::os::raw;
 use std::os::windows::ffi::OsStrExt;
+use std::thread;
+use std::time::Duration;
 use winapi::shared::{minwindef, ntdef};
 use winapi::um::processthreadsapi;
 
@@ -71,14 +73,14 @@ impl OpaqueBuffer {
     }
 
     pub unsafe fn as_mut_ptr(&mut self) -> *mut raw::c_void {
-        mem::transmute(self.buffer.as_mut_ptr())
+        self.buffer.as_mut_ptr() as *mut raw::c_void
     }
 
     pub unsafe fn into_box<T>(self) -> Box<T> {
         let OpaqueBuffer { mut buffer } = self;
         let raw = buffer.as_mut_ptr();
         mem::forget(buffer);
-        Box::from_raw(mem::transmute::<_, *mut T>(raw))
+        Box::from_raw(raw as *mut T)
     }
 }
 
@@ -98,7 +100,9 @@ fn exit_process(code: minwindef::UINT) -> ! {
     unsafe {
         processthreadsapi::ExitProcess(code);
     }
-    loop {}
+    loop {
+        thread::sleep(Duration::from_secs(1));
+    }
 }
 
 // TODO: Implement these types.

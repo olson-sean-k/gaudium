@@ -384,7 +384,6 @@ where
     }
 }
 
-
 /// Creates a `StatefulReactor` from a tuple of state and a function that
 /// reacts to events.
 impl<P, T, F> From<(T, F)> for StatefulReactor<P, T, F>

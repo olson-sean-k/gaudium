@@ -1,5 +1,6 @@
 use gaudium_core::device::Usage;
-use std::mem;
+use std::ffi;
+use std::mem::{self, MaybeUninit};
 use std::ops::{Deref, DerefMut};
 use std::ptr;
 use winapi::shared::{hidpi, hidusage, minwindef, ntdef, windef};
@@ -94,7 +95,7 @@ pub fn register(window: windef::HWND) -> Result<(), ()> {
     ];
     unsafe {
         if winuser::RegisterRawInputDevices(
-            mem::transmute(&rids),
+            &rids as *const [winuser::RAWINPUTDEVICE] as *const winuser::RAWINPUTDEVICE,
             rids.len() as u32,
             mem::size_of::<winuser::RAWINPUTDEVICE>() as u32,
         ) == 0
@@ -109,12 +110,12 @@ pub fn register(window: windef::HWND) -> Result<(), ()> {
 
 pub fn raw_input_header(device: winuser::HRAWINPUT) -> Result<winuser::RAWINPUTHEADER, ()> {
     unsafe {
-        let mut header = mem::uninitialized::<winuser::RAWINPUTHEADER>();
+        let mut header = MaybeUninit::<winuser::RAWINPUTHEADER>::uninit();
         let mut size = mem::size_of::<winuser::RAWINPUTHEADER>() as u32;
         if winuser::GetRawInputData(
             device,
             winuser::RID_HEADER,
-            mem::transmute(&mut header),
+            header.as_mut_ptr() as *mut ffi::c_void,
             &mut size,
             mem::size_of::<winuser::RAWINPUTHEADER>() as u32,
         ) != size
@@ -122,7 +123,7 @@ pub fn raw_input_header(device: winuser::HRAWINPUT) -> Result<winuser::RAWINPUTH
             Err(())
         }
         else {
-            Ok(header)
+            Ok(header.assume_init())
         }
     }
 }
@@ -134,12 +135,12 @@ pub fn raw_input(device: winuser::HRAWINPUT) -> Result<RawInput, ()> {
     // Read the header and then determine the type of device.
     match raw_input_header(device)?.dwType {
         winuser::RIM_TYPEKEYBOARD | winuser::RIM_TYPEMOUSE => unsafe {
-            let mut input = mem::uninitialized::<winuser::RAWINPUT>();
+            let mut input = MaybeUninit::<winuser::RAWINPUT>::uninit();
             let mut size = mem::size_of::<winuser::RAWINPUT>() as u32;
             if winuser::GetRawInputData(
                 device,
                 winuser::RID_INPUT,
-                mem::transmute(&mut input),
+                input.as_mut_ptr() as *mut ffi::c_void,
                 &mut size,
                 mem::size_of::<winuser::RAWINPUTHEADER>() as u32,
             ) > size
@@ -147,7 +148,7 @@ pub fn raw_input(device: winuser::HRAWINPUT) -> Result<RawInput, ()> {
                 Err(())
             }
             else {
-                Ok(RawInput::Unboxed(input))
+                Ok(RawInput::Unboxed(input.assume_init()))
             }
         },
         _ => unsafe {
@@ -263,7 +264,7 @@ pub fn device_name(device: ntdef::HANDLE) -> Result<String, ()> {
                 if winuser::GetRawInputDeviceInfoW(
                     device,
                     winuser::RIDI_DEVICENAME,
-                    mem::transmute(buffer.as_mut_ptr()),
+                    buffer.as_mut_ptr() as *mut ffi::c_void,
                     &mut n,
                 ) == n
                 {
@@ -315,9 +316,9 @@ pub fn devices() -> Result<Vec<winuser::RAWINPUTDEVICELIST>, ()> {
 
 pub fn hid_capabilities(data: &mut hidpi::HIDP_PREPARSED_DATA) -> Result<hidpi::HIDP_CAPS, ()> {
     unsafe {
-        let mut capabilities = mem::uninitialized();
-        if hidpi::HidP_GetCaps(data, &mut capabilities) == hidpi::HIDP_STATUS_SUCCESS {
-            Ok(capabilities)
+        let mut capabilities = MaybeUninit::<hidpi::HIDP_CAPS>::uninit();
+        if hidpi::HidP_GetCaps(data, capabilities.as_mut_ptr()) == hidpi::HIDP_STATUS_SUCCESS {
+            Ok(capabilities.assume_init())
         }
         else {
             Err(())
@@ -372,7 +373,7 @@ pub fn read_hid_buttons(
                 usages.as_mut_ptr(),
                 &mut n,
                 data,
-                mem::transmute(&mut input.data.hid_mut().bRawData),
+                &mut input.data.hid_mut().bRawData as *mut [u8; 1] as *mut i8,
                 input.data.hid().dwSizeHid,
             ) == hidpi::HIDP_STATUS_SUCCESS
             {
@@ -424,7 +425,7 @@ pub fn read_hid_value(
                     capabilities.u.Range().UsageMin,
                     &mut value,
                     data,
-                    mem::transmute(&mut input.data.hid_mut().bRawData),
+                    &mut input.data.hid_mut().bRawData as *mut [u8; 1] as *mut i8,
                     input.data.hid().dwSizeHid,
                 ) == hidpi::HIDP_STATUS_SUCCESS
                 {
