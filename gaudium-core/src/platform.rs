@@ -1,3 +1,14 @@
+//! Platform interface.
+//!
+//! This module presents an API to platform crates. By implementing these
+//! traits and re-exporting a type that implements `PlatformBinding`, arbitrary
+//! code can support `gaudium-core`.
+//!
+//! One notable exception to this API is the **implicit interface** described
+//! by extension traits. The `gaudium` crate re-exports these traits, and some
+//! functions provided by these traits are expected to be compatible with
+//! traits defined elsewhere.
+
 use std::fmt::Debug;
 use std::hash::Hash;
 

@@ -100,6 +100,7 @@ pub mod prelude {
     pub use crate::reactor::Poll;
     pub use crate::reactor::Poll::Ready;
     pub use crate::reactor::Poll::Wait;
+    pub use crate::reactor::Poll::WaitUntil;
     pub use crate::reactor::Reaction;
     pub use crate::reactor::Reaction::Abort;
     pub use crate::reactor::Reaction::Continue;
@@ -162,6 +163,7 @@ mod tests {
                         event: WindowEvent::Closed(..),
                         ..
                     } => Abort,
+                    Event::Application { .. } => Continue(()),
                     _ => self.tx.send(event).map(|_| Continue(())).into(),
                 }
             }
