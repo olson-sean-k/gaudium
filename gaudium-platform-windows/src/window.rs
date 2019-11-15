@@ -9,7 +9,6 @@ use lazy_static::lazy_static;
 use std::collections::HashSet;
 use std::hash::{Hash, Hasher};
 use std::mem;
-use std::panic;
 use std::ptr;
 use winapi::shared::{basetsd, minwindef, ntdef, windef};
 use winapi::um::{commctrl, libloaderapi, winuser};
@@ -247,7 +246,7 @@ impl PartialEq for Window {
 unsafe impl Send for Window {}
 unsafe impl Sync for Window {}
 
-extern "system" fn procedure(
+unsafe extern "system" fn procedure(
     window: windef::HWND,
     message: minwindef::UINT,
     wparam: minwindef::WPARAM,
@@ -255,107 +254,93 @@ extern "system" fn procedure(
     _: basetsd::UINT_PTR,
     state: basetsd::DWORD_PTR,
 ) -> minwindef::LRESULT {
-    // TODO: Is there some way to avoid this overhead? Perhaps an optional and
-    //       unsafe `NoPanic` trait for reactors?
-    // TODO: Depending on how this should terminate, this may not require
-    //       `catch_unwind` after https://github.com/rust-lang/rust/pull/55982
-    //       lands.
-    match panic::catch_unwind(move || unsafe {
-        let state = &mut *(state as *mut WindowState);
-        match message {
-            winuser::WM_CLOSE => {
-                let _ = reactor::react(Event::Window {
-                    window: WindowHandle::from_raw_handle(window),
-                    event: WindowEvent::Closed(WindowCloseState::Requested),
-                });
-                return 0; // Do NOT destroy the window yet.
-            }
-            // TODO: This will typically not execute (for the last window)
-            //       given the current structure of window destruction.
-            winuser::WM_DESTROY => {
-                let _ = Box::from_raw(state);
-                let _ = reactor::react(Event::Window {
-                    window: WindowHandle::from_raw_handle(window),
-                    event: WindowEvent::Closed(WindowCloseState::Committed),
-                });
-            }
-            winuser::WM_INPUT => {
-                if let Ok(mut input) = input::raw_input(lparam as winuser::HRAWINPUT) {
-                    let device = input.header.hDevice;
-                    match input.header.dwType {
-                        winuser::RIM_TYPEKEYBOARD => {
-                            if let Ok(event) = keyboard::parse_raw_input(input.data.keyboard()) {
-                                let _ = reactor::react(Event::Input {
+    let state = &mut *(state as *mut WindowState);
+    match message {
+        winuser::WM_CLOSE => {
+            let _ = reactor::react(Event::Window {
+                window: WindowHandle::from_raw_handle(window),
+                event: WindowEvent::Closed(WindowCloseState::Requested),
+            });
+            return 0; // Do NOT destroy the window yet.
+        }
+        // TODO: This will typically not execute (for the last window)
+        //       given the current structure of window destruction.
+        winuser::WM_DESTROY => {
+            let _ = Box::from_raw(state);
+            let _ = reactor::react(Event::Window {
+                window: WindowHandle::from_raw_handle(window),
+                event: WindowEvent::Closed(WindowCloseState::Committed),
+            });
+        }
+        winuser::WM_INPUT => {
+            if let Ok(mut input) = input::raw_input(lparam as winuser::HRAWINPUT) {
+                let device = input.header.hDevice;
+                match input.header.dwType {
+                    winuser::RIM_TYPEKEYBOARD => {
+                        if let Ok(event) = keyboard::parse_raw_input(input.data.keyboard()) {
+                            let _ = reactor::react(Event::Input {
+                                device: DeviceHandle::from_raw_handle(device),
+                                window: None,
+                                event,
+                            });
+                        }
+                    }
+                    winuser::RIM_TYPEMOUSE => {
+                        if let Ok(events) = mouse::parse_raw_input(window, input.data.mouse()) {
+                            let _ =
+                                reactor::enqueue(events.into_iter().map(|event| Event::Input {
                                     device: DeviceHandle::from_raw_handle(device),
                                     window: None,
                                     event,
-                                });
-                            }
-                        }
-                        winuser::RIM_TYPEMOUSE => {
-                            if let Ok(events) = mouse::parse_raw_input(window, input.data.mouse()) {
-                                let _ = reactor::enqueue(events.into_iter().map(|event| {
-                                    Event::Input {
-                                        device: DeviceHandle::from_raw_handle(device),
-                                        window: None,
-                                        event,
-                                    }
                                 }));
-                            }
-                        }
-                        // TODO: Enqueue events for game controllers.
-                        // TODO: Marshal game controller data.
-                        winuser::RIM_TYPEHID => {
-                            if let Ok(mut data) = input::preparsed_data(device) {
-                                let _ = input::hid_capabilities(&mut data)
-                                    .and_then(|capabilities| {
-                                        input::hid_button_capabilities(&capabilities, &mut data)
-                                    })
-                                    .map(|capabilities| {
-                                        for capability in capabilities {
-                                            let _ = input::read_hid_buttons(
-                                                &capability,
-                                                &mut input,
-                                                &mut data,
-                                            );
-                                        }
-                                    });
-                            }
-                        }
-                        _ => {}
-                    }
-                }
-            }
-            winuser::WM_INPUT_DEVICE_CHANGE => {
-                let device = lparam as ntdef::HANDLE;
-                let _ = reactor::react(Event::Input {
-                    device: DeviceHandle::from_raw_handle(device),
-                    window: Some(WindowHandle::from_raw_handle(window)),
-                    event: if (wparam as minwindef::DWORD) == winuser::GIDC_ARRIVAL {
-                        InputEvent::Connected {
-                            usage: input::device_info(device)
-                                .ok()
-                                .and_then(|info| Usage::try_from_device_info(&info)),
                         }
                     }
-                    else {
-                        InputEvent::Disconnected
-                    },
-                });
-            }
-            // Handle application-specific messages.
-            _ => {
-                if message == *WM_DROP {
-                    winuser::DestroyWindow(window);
+                    // TODO: Enqueue events for game controllers.
+                    // TODO: Marshal game controller data.
+                    winuser::RIM_TYPEHID => {
+                        if let Ok(mut data) = input::preparsed_data(device) {
+                            let _ = input::hid_capabilities(&mut data)
+                                .and_then(|capabilities| {
+                                    input::hid_button_capabilities(&capabilities, &mut data)
+                                })
+                                .map(|capabilities| {
+                                    for capability in capabilities {
+                                        let _ = input::read_hid_buttons(
+                                            &capability,
+                                            &mut input,
+                                            &mut data,
+                                        );
+                                    }
+                                });
+                        }
+                    }
+                    _ => {}
                 }
             }
         }
-        commctrl::DefSubclassProc(window, message, wparam, lparam)
-    }) {
-        Ok(result) => result,
-        Err(_) => {
-            // All bets are off. Kill the process.
-            crate::exit_process(1)
+        winuser::WM_INPUT_DEVICE_CHANGE => {
+            let device = lparam as ntdef::HANDLE;
+            let _ = reactor::react(Event::Input {
+                device: DeviceHandle::from_raw_handle(device),
+                window: Some(WindowHandle::from_raw_handle(window)),
+                event: if (wparam as minwindef::DWORD) == winuser::GIDC_ARRIVAL {
+                    InputEvent::Connected {
+                        usage: input::device_info(device)
+                            .ok()
+                            .and_then(|info| Usage::try_from_device_info(&info)),
+                    }
+                }
+                else {
+                    InputEvent::Disconnected
+                },
+            });
+        }
+        // Handle application-specific messages.
+        _ => {
+            if message == *WM_DROP {
+                winuser::DestroyWindow(window);
+            }
         }
     }
+    commctrl::DefSubclassProc(window, message, wparam, lparam)
 }

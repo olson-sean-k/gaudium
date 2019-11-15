@@ -6,10 +6,7 @@ use std::mem;
 use std::ops::BitAnd;
 use std::os::raw;
 use std::os::windows::ffi::OsStrExt;
-use std::thread;
-use std::time::Duration;
-use winapi::shared::{minwindef, ntdef};
-use winapi::um::processthreadsapi;
+use winapi::shared::ntdef;
 
 mod input;
 mod keyboard;
@@ -93,15 +90,6 @@ where
     }
     else {
         value & flags != Zero::zero()
-    }
-}
-
-fn exit_process(code: minwindef::UINT) -> ! {
-    unsafe {
-        processthreadsapi::ExitProcess(code);
-    }
-    loop {
-        thread::sleep(Duration::from_secs(1));
     }
 }
 

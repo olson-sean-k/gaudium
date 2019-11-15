@@ -5,6 +5,7 @@ use gaudium_core::window::WindowHandle;
 use std::cell::Cell;
 use std::collections::VecDeque;
 use std::mem;
+use std::process;
 use std::ptr;
 use winapi::shared::minwindef;
 use winapi::um::winuser;
@@ -137,7 +138,7 @@ impl platform::Abort<Binding> for Entry {
     where
         R: Reactor<Binding>,
     {
-        unsafe { crate::exit_process(EventThread::new(context, reactor).run()) }
+        unsafe { process::exit(EventThread::new(context, reactor).run() as i32) }
     }
 }
 
