@@ -2,7 +2,7 @@ use gaudium_core::event::{ApplicationEvent, Event, Resumption};
 use gaudium_core::platform;
 use gaudium_core::reactor::{Poll, Reaction, Reactor, ThreadContext};
 use gaudium_core::window::WindowHandle;
-use std::cell::RefCell;
+use std::cell::Cell;
 use std::collections::VecDeque;
 use std::mem;
 use std::ptr;
@@ -20,7 +20,7 @@ use Reaction::Abort;
 use Reaction::Continue;
 
 thread_local! {
-    static EVENT_THREAD: RefCell<Option<*mut dyn React>> = RefCell::new(None);
+    static EVENT_THREAD: Cell<Option<*mut dyn React>> = Cell::new(None);
 }
 
 trait React {
@@ -54,8 +54,9 @@ where
     #[allow(clippy::useless_transmute)]
     unsafe fn run(mut self) -> minwindef::UINT {
         EVENT_THREAD.with(|thread| {
-            *thread.borrow_mut() =
-                Some(mem::transmute::<&mut dyn React, *mut dyn React>(&mut self));
+            thread.set(Some(mem::transmute::<&mut dyn React, *mut dyn React>(
+                &mut self,
+            )));
         });
         let message = &mut mem::zeroed();
         'react: loop {
@@ -85,7 +86,7 @@ where
             });
         }
         EVENT_THREAD.with(|thread| {
-            *thread.borrow_mut() = None;
+            thread.set(None);
         });
         self.abort(); // Drop the reactor and all state.
         if (*message).message == winuser::WM_QUIT {
@@ -136,10 +137,7 @@ impl platform::Abort<Binding> for Entry {
     where
         R: Reactor<Binding>,
     {
-        unsafe {
-            let code = EventThread::new(context, reactor).run();
-            crate::exit_process(code)
-        }
+        unsafe { crate::exit_process(EventThread::new(context, reactor).run()) }
     }
 }
 
@@ -156,12 +154,10 @@ impl platform::Join<Binding> for Entry {
 
 pub unsafe fn react(event: Event<Binding>) -> Result<Reaction, ()> {
     EVENT_THREAD.with(move |thread| {
-        if let Some(thread) = *thread.borrow_mut() {
-            Ok((*thread).react(event))
-        }
-        else {
-            Err(())
-        }
+        thread
+            .get()
+            .ok_or_else(|| ())
+            .map(|thread| (*thread).react(event))
     })
 }
 
@@ -170,15 +166,11 @@ where
     I: IntoIterator<Item = Event<Binding>>,
 {
     EVENT_THREAD.with(move |thread| {
-        if let Some(thread) = *thread.borrow_mut() {
+        thread.get().ok_or_else(|| ()).map(|thread| {
             for event in events {
                 (*thread).enqueue(event);
             }
-            Ok(())
-        }
-        else {
-            Err(())
-        }
+        })
     })
 }
 
