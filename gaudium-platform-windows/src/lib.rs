@@ -1,9 +1,11 @@
 #![cfg(target_os = "windows")]
 
 use num::{Integer, Num, One, Zero};
+use std::alloc::{self, Layout};
 use std::ffi::OsStr;
-use std::mem;
-use std::ops::BitAnd;
+use std::marker::PhantomData;
+use std::mem::{self, ManuallyDrop};
+use std::ops::{BitAnd, Deref};
 use std::os::raw;
 use std::os::windows::ffi::OsStrExt;
 use std::time::Duration;
@@ -76,26 +78,46 @@ where
     }
 }
 
-struct OpaqueBuffer {
-    buffer: Vec<u8>,
+struct Buffer<T> {
+    raw: ManuallyDrop<*mut u8>,
+    phantom: PhantomData<T>,
 }
 
-impl OpaqueBuffer {
-    pub fn with_size(size: usize) -> Self {
-        OpaqueBuffer {
-            buffer: Vec::with_capacity(size),
+impl<T> Buffer<T> {
+    pub fn allocate() -> Self {
+        let raw = ManuallyDrop::new(unsafe { alloc::alloc(Layout::new::<T>()) });
+        Buffer {
+            raw,
+            phantom: PhantomData,
         }
     }
 
-    pub unsafe fn as_mut_ptr(&mut self) -> *mut raw::c_void {
-        self.buffer.as_mut_ptr() as *mut raw::c_void
+    pub unsafe fn allocate_bytes(size: usize) -> Result<Self, ()> {
+        let raw = ManuallyDrop::new(alloc::alloc(
+            Layout::from_size_align(size, mem::align_of::<T>()).map_err(|_| ())?,
+        ));
+        Ok(Buffer {
+            raw,
+            phantom: PhantomData,
+        })
     }
 
-    pub unsafe fn into_box<T>(self) -> Box<T> {
-        let OpaqueBuffer { mut buffer } = self;
-        let raw = buffer.as_mut_ptr();
-        mem::forget(buffer);
-        Box::from_raw(raw as *mut T)
+    pub fn as_mut_ptr(&mut self) -> *mut raw::c_void {
+        *self.raw.deref() as *mut raw::c_void
+    }
+
+    pub fn into_box(self) -> Box<T> {
+        let Buffer { raw, .. } = self;
+        let mut raw = ManuallyDrop::into_inner(raw);
+        unsafe { Box::from_raw(raw as *mut T) }
+    }
+}
+
+impl<T> Drop for Buffer<T> {
+    fn drop(&mut self) {
+        unsafe {
+            ManuallyDrop::drop(&mut self.raw);
+        }
     }
 }
 

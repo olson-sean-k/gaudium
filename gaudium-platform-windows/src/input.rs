@@ -6,7 +6,7 @@ use std::ptr;
 use winapi::shared::{hidpi, hidusage, minwindef, ntdef, windef};
 use winapi::um::winuser;
 
-use crate::OpaqueBuffer;
+use crate::Buffer;
 
 pub trait TryFromDeviceInfo: Sized {
     fn try_from_device_info(info: &winuser::RID_DEVICE_INFO) -> Option<Self>;
@@ -163,7 +163,7 @@ pub fn raw_input(device: winuser::HRAWINPUT) -> Result<RawInput, ()> {
             {
                 return Err(());
             }
-            let mut buffer = OpaqueBuffer::with_size(size as usize);
+            let mut buffer = unsafe { Buffer::allocate_bytes(size as usize)? };
             if winuser::GetRawInputData(
                 device,
                 winuser::RID_INPUT,
@@ -190,7 +190,7 @@ pub fn preparsed_data(device: ntdef::HANDLE) -> Result<Box<hidpi::HIDP_PREPARSED
         ) == 0
         {
             if size != 0 {
-                let mut buffer = OpaqueBuffer::with_size(size as usize);
+                let mut buffer = unsafe { Buffer::allocate_bytes(size as usize)? };
                 if winuser::GetRawInputDeviceInfoW(
                     device,
                     winuser::RIDI_PREPARSEDDATA,
@@ -225,7 +225,8 @@ pub fn device_info(device: ntdef::HANDLE) -> Result<Box<winuser::RID_DEVICE_INFO
         ) == 0
         {
             if size != 0 {
-                let mut buffer = OpaqueBuffer::with_size(size as usize);
+                // Ignore `size` when allocating; `RID_DEVICE_INFO` is a fixed size.
+                let mut buffer = Buffer::allocate();
                 if winuser::GetRawInputDeviceInfoW(
                     device,
                     winuser::RIDI_DEVICEINFO,
