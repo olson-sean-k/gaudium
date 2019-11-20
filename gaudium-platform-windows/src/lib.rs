@@ -84,7 +84,7 @@ struct Buffer<T> {
 }
 
 impl<T> Buffer<T> {
-    pub fn allocate() -> Self {
+    pub fn new() -> Self {
         let raw = ManuallyDrop::new(unsafe { alloc::alloc(Layout::new::<T>()) });
         Buffer {
             raw,
@@ -92,7 +92,7 @@ impl<T> Buffer<T> {
         }
     }
 
-    pub unsafe fn allocate_bytes(size: usize) -> Result<Self, ()> {
+    pub unsafe fn from_size(size: usize) -> Result<Self, ()> {
         let raw = ManuallyDrop::new(alloc::alloc(
             Layout::from_size_align(size, mem::align_of::<T>()).map_err(|_| ())?,
         ));

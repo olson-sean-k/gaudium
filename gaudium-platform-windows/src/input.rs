@@ -163,7 +163,7 @@ pub fn raw_input(device: winuser::HRAWINPUT) -> Result<RawInput, ()> {
             {
                 return Err(());
             }
-            let mut buffer = unsafe { Buffer::allocate_bytes(size as usize)? };
+            let mut buffer = Buffer::from_size(size as usize)?;
             if winuser::GetRawInputData(
                 device,
                 winuser::RID_INPUT,
@@ -190,7 +190,7 @@ pub fn preparsed_data(device: ntdef::HANDLE) -> Result<Box<hidpi::HIDP_PREPARSED
         ) == 0
         {
             if size != 0 {
-                let mut buffer = unsafe { Buffer::allocate_bytes(size as usize)? };
+                let mut buffer = Buffer::from_size(size as usize)?;
                 if winuser::GetRawInputDeviceInfoW(
                     device,
                     winuser::RIDI_PREPARSEDDATA,
@@ -214,7 +214,7 @@ pub fn preparsed_data(device: ntdef::HANDLE) -> Result<Box<hidpi::HIDP_PREPARSED
     }
 }
 
-pub fn device_info(device: ntdef::HANDLE) -> Result<Box<winuser::RID_DEVICE_INFO>, ()> {
+pub fn device_info(device: ntdef::HANDLE) -> Result<winuser::RID_DEVICE_INFO, ()> {
     unsafe {
         let mut size = 0;
         if winuser::GetRawInputDeviceInfoW(
@@ -225,16 +225,16 @@ pub fn device_info(device: ntdef::HANDLE) -> Result<Box<winuser::RID_DEVICE_INFO
         ) == 0
         {
             if size != 0 {
-                // Ignore `size` when allocating; `RID_DEVICE_INFO` is a fixed size.
-                let mut buffer = Buffer::allocate();
+                // Ignore `size`; `RID_DEVICE_INFO` is expected and statically sized.
+                let mut info = MaybeUninit::<winuser::RID_DEVICE_INFO>::uninit();
                 if winuser::GetRawInputDeviceInfoW(
                     device,
                     winuser::RIDI_DEVICEINFO,
-                    buffer.as_mut_ptr(),
+                    info.as_mut_ptr() as *mut ffi::c_void,
                     &mut size,
                 ) == size
                 {
-                    Ok(buffer.into_box())
+                    Ok(info.assume_init())
                 }
                 else {
                     Err(())
