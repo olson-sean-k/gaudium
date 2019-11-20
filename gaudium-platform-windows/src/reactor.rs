@@ -7,10 +7,11 @@ use std::collections::VecDeque;
 use std::mem;
 use std::process;
 use std::ptr;
-use winapi::shared::minwindef;
+use std::time::Instant;
+use winapi::shared::{minwindef, winerror};
 use winapi::um::winuser;
 
-use crate::Binding;
+use crate::{Binding, DwordMilliseconds};
 
 use ApplicationEvent::Flushed;
 use ApplicationEvent::Resumed;
@@ -72,18 +73,23 @@ where
                 self.react(event);
             }
             self.poll();
-            match self.reaction {
-                Continue(Wait) | Continue(WaitUntil(_)) => {
+            let resumption = match self.reaction {
+                Continue(Wait) => {
                     if winuser::GetMessageW(message, ptr::null_mut(), 0, 0) == 0 {
                         break 'react;
                     }
                     dispatch(message); // May call `react`.
+                    Resumption::Poll
                 }
-                Continue(Ready) => {}
+                Continue(WaitUntil(until)) => match wait_for_message_until(until) {
+                    Ok(resumption) => resumption,
+                    Err(_) => Resumption::Poll,
+                },
+                Continue(Ready) => Resumption::Poll,
                 Abort => break 'react,
-            }
+            };
             self.react(Event::Application {
-                event: Resumed(Resumption::Poll),
+                event: Resumed(resumption),
             });
         }
         EVENT_THREAD.with(|thread| {
@@ -173,6 +179,28 @@ where
             }
         })
     })
+}
+
+pub unsafe fn wait_for_message_until(until: Instant) -> Result<Resumption, ()> {
+    let now = Instant::now();
+    if until >= now {
+        if winuser::MsgWaitForMultipleObjectsEx(
+            0,
+            ptr::null(),
+            (until - now).dword_milliseconds(),
+            winuser::QS_ALLEVENTS,
+            winuser::MWMO_INPUTAVAILABLE,
+        ) == winerror::WAIT_TIMEOUT
+        {
+            Ok(Resumption::Timeout(now))
+        }
+        else {
+            Ok(Resumption::Interrupt(now))
+        }
+    }
+    else {
+        Err(())
+    }
 }
 
 unsafe fn dispatch(message: *mut winuser::MSG) {

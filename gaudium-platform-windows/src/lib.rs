@@ -6,7 +6,9 @@ use std::mem;
 use std::ops::BitAnd;
 use std::os::raw;
 use std::os::windows::ffi::OsStrExt;
-use winapi::shared::ntdef;
+use std::time::Duration;
+use winapi::shared::{minwindef, ntdef};
+use winapi::um::winbase;
 
 mod input;
 mod keyboard;
@@ -39,6 +41,22 @@ impl WindowBuilderExt for WindowBuilder<Binding> {
         T: AsRef<str>,
     {
         self.map(move |inner| inner.with_title(title))
+    }
+}
+
+trait DwordMilliseconds {
+    fn dword_milliseconds(self) -> minwindef::DWORD;
+}
+
+impl DwordMilliseconds for Duration {
+    fn dword_milliseconds(self) -> minwindef::DWORD {
+        let milliseconds = self.as_millis();
+        if milliseconds > minwindef::DWORD::max_value() as u128 {
+            winbase::INFINITE
+        }
+        else {
+            milliseconds as minwindef::DWORD
+        }
     }
 }
 
